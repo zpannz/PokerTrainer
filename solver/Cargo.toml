@@ -1,0 +1,20 @@
+# 翻后求解器（Rust）
+# - core：对 postflop-solver 的封装（建树、读取节点数据），浏览器和预计算共用
+# - wasm：编译成 WebAssembly，在浏览器 Web Worker 中运行（单线程）
+# - precompute：原生多线程程序，在 GitHub Actions 中批量求解代表性翻牌
+#
+# 求解引擎 postflop-solver 由 Wataru Inariba 开发，AGPL-3.0-or-later，见 ../NOTICE.md
+[workspace]
+resolver = "2"
+members = ["core", "wasm", "precompute"]
+
+[workspace.dependencies]
+postflop-solver = { git = "https://github.com/b-inary/postflop-solver", rev = "9d1509fe5077d019825f833eed04b16d342dfda1", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"

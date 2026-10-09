@@ -10,6 +10,7 @@ import { DrillsPage } from './pages/DrillsPage.tsx';
 import { LessonsPage } from './pages/LessonsPage.tsx';
 import { StatsPage } from './pages/StatsPage.tsx';
 import { AboutPage } from './pages/AboutPage.tsx';
+import { SolverPage } from './pages/SolverPage.tsx';
 
 function useHashRoute(): string {
   const get = () => (window.location.hash.replace(/^#/, '') || '/').split('?')[0];
@@ -28,6 +29,7 @@ function useHashRoute(): string {
 const NAV: { path: string; label: string }[] = [
   { path: '/ranges', label: '范围库' },
   { path: '/train', label: '翻前训练' },
+  { path: '/solver', label: '翻后求解' },
   { path: '/tools/equity', label: '胜率计算' },
   { path: '/tools/icm', label: 'ICM' },
   { path: '/tools/drills', label: '概念练习' },
@@ -50,6 +52,7 @@ export function App() {
   if (!ready) page = <div className="card">{error ? `数据加载失败：${error}` : '正在加载数据…'}</div>;
   else if (route.startsWith('/ranges')) page = <RangesPage />;
   else if (route.startsWith('/train')) page = <TrainerPage />;
+  else if (route.startsWith('/solver')) page = <SolverPage />;
   else if (route.startsWith('/tools/equity')) page = <EquityPage />;
   else if (route.startsWith('/tools/icm')) page = <IcmPage />;
   else if (route.startsWith('/tools/drills')) page = <DrillsPage />;

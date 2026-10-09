@@ -1,0 +1,3 @@
+# 浏览器端开启 WebAssembly SIMD（Chrome 91+ / Firefox 89+ / Safari 16.4+ 均支持）
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=+simd128,+bulk-memory,+nontrapping-fptoint,+sign-ext"]
