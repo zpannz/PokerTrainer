@@ -1018,6 +1018,8 @@ kbd {
   overflow: hidden;
   background: var(--bg2);
   cursor: pointer;
+  color: var(--text);
+  text-shadow: 0 0 2px var(--panel), 0 0 2px var(--panel);
 }
 .pf-cell .pf-fill {
   position: absolute;
