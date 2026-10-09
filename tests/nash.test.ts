@@ -9,7 +9,8 @@ beforeAll(async () => {
 
 describe('全下/弃牌纳什均衡', () => {
   it('预计算结果收敛（可被利用度 < 0.01bb）', () => {
-    for (const p of [6, 9]) for (const s of [10, 15, 20]) expect(getPushFold(p, s)!.exploitability).toBeLessThan(0.01);
+    for (const p of [6, 9]) for (const s of [5, 8, 10, 12, 15, 20]) expect(getPushFold(p, s)!.exploitability).toBeLessThan(0.01);
+    for (const p of [6, 9]) expect(getPushFold(p, 25)!.exploitability).toBeLessThan(0.02);
   });
 
   it('越靠后的位置全下越宽；筹码越深全下越紧', () => {

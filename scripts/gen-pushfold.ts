@@ -1,4 +1,4 @@
-// 预计算锦标赛全下/弃牌纳什均衡（6/9 人桌，10/15/20bb，大盲前注 1bb）
+// 预计算锦标赛全下/弃牌纳什均衡（6/9 人桌，5~25bb，大盲前注 1bb；25bb 只用于"跟注全下"表）
 import { readFileSync, writeFileSync } from 'node:fs';
 import { solvePushFold, type PushFoldResult } from '../src/lib/nash.ts';
 import { compatTable, rangePercent } from '../src/lib/hands.ts';
@@ -6,10 +6,10 @@ import { compatTable, rangePercent } from '../src/lib/hands.ts';
 const eqFile = JSON.parse(readFileSync(new URL('../src/data/generated/equity169.json', import.meta.url), 'utf8'));
 const eq = Float64Array.from(eqFile.eq as number[], (v) => v / eqFile.scale);
 const compat = compatTable();
-const iterations = Number(process.env.ITER ?? 3000);
+const iterations = Number(process.env.ITER ?? 6000);
 const results: Record<string, PushFoldResult> = {};
 for (const players of [6, 9]) {
-  for (const stack of [10, 15, 20]) {
+  for (const stack of [5, 8, 10, 12, 15, 20, 25]) {
     const t0 = Date.now();
     const r = solvePushFold({ players, stack, ante: 1, eq, compat, iterations });
     // EV 只保留到 0.01bb，减小文件体积

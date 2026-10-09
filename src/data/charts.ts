@@ -16,11 +16,12 @@ import {
   openSize,
   threeBetSize,
   fourBetSize,
+  hasReshove,
 } from '../lib/formats.ts';
 import { HAND_CLASSES, NUM_CLASSES, compatTable } from '../lib/hands.ts';
 import { parseRange } from '../lib/rangeText.ts';
 import { CASH6_RFI_TEXT } from './baseCharts.ts';
-import { getEquityMatrix, getPushFold } from './equityData.ts';
+import { getEquityMatrix, getPushFold, getReshove } from './equityData.ts';
 
 export type SourceKind = 'computed' | 'compiled' | 'approx' | 'custom';
 
@@ -214,6 +215,19 @@ function rfiChart(f: Format, pos: Position): Chart {
     source,
     sizing: `开池 ${size}bb`,
   };
+}
+
+/**
+ * 锦标赛开池（加注）范围。有开池表的深度直接取表；15/20bb（全下/弃牌格式）没有开池表，
+ * 按 25bb 的开池比例再收紧 10% 近似生成（这些深度实战中常见"小加注或全下"混合，这里只考虑小加注部分）。
+ */
+export function mttOpenRange(f: Format, pos: Position): Float64Array {
+  if (!isPushFold(f)) return getChart(spotId(f.id, 'rfi', pos)).freq.raise!;
+  const table = f.players === 6 ? RFI_WIDTH_MTT6 : RFI_WIDTH_MTT9;
+  const width = (table[pos] ?? 0.2) * (pos === 'BTN' || pos === 'SB' || pos === 'CO' ? 0.95 : 0.92) * 0.9;
+  const prior = new Float64Array(H).fill(1);
+  const r = allocate(openOrder(), new Float64Array(H).fill(1), prior, width * TOTAL, 0.025 * TOTAL);
+  return finalizeFreq({ raise: r }, ['raise', 'fold']).raise!;
 }
 
 // ---------- 面对开池（vs Open） ----------
@@ -424,8 +438,57 @@ function vsShoveChart(f: Format, hero: Position, pusher: Position): Chart {
     freq: finalizeFreq({ call }, actions),
     prior: new Float64Array(H).fill(1),
     ev: { call: Float64Array.from(res.callEV[p][j]) },
-    source: { kind: 'computed', note: PF_NOTE(f) },
+    source: {
+      kind: 'computed',
+      note:
+        PF_NOTE(f) +
+        (isPushFold(f) ? '' : ` 全下者的范围取 ${f.depth}bb 全下/弃牌均衡（这个深度开池全下并不常见，本表用于判断面对全下时该用哪些牌跟注）。`),
+    },
     sizing: `对手全下 ${f.depth}bb`,
+  };
+}
+
+// ---------- 开池 vs 再全下（精确计算） ----------
+
+const RS_NOTE = (f: Format) =>
+  `由本工具自行计算的均衡（筹码 EV）：${f.players} 人、每人 ${f.depth}bb、大盲前注 1bb。` +
+  '假设：开池者按范围库的开池范围加注（开池范围本身是近似数据，不参与求解）；后位玩家只能再全下或弃牌（不考虑平跟）；' +
+  '再全下之后其余玩家都弃牌，开池者跟注或弃牌；不考虑 ICM。胜率来自精确的 169×169 矩阵，牌的去除效应按成对计算。';
+
+function reshoveData(f: Format, opener: Position, shover: Position) {
+  const pos = positionsOf(f);
+  const r = getReshove(f.players, f.depth, pos.indexOf(opener), pos.indexOf(shover));
+  if (!r) throw new Error(`缺少再全下数据 ${f.id} ${opener}-${shover}`);
+  return r;
+}
+
+function reshoveChart(f: Format, hero: Position, opener: Position): Chart {
+  const r = reshoveData(f, opener, hero);
+  const spot = { id: spotId(f.id, 'reshove', hero, opener), format: f, type: 'reshove' as const, hero, villain: opener };
+  const actions: ActionKey[] = ['allin', 'fold'];
+  return {
+    spot,
+    actions,
+    freq: finalizeFreq({ allin: Float64Array.from(r.shove) }, actions),
+    prior: new Float64Array(H).fill(1),
+    ev: { allin: Float64Array.from(r.shoveEV) },
+    source: { kind: 'computed', note: RS_NOTE(f) + ` 可被利用度 ≈ ${r.exploitability.toFixed(3)}bb。` },
+    sizing: `对手开池 ${openSize(f, opener)}bb，你全下 ${f.depth}bb（底池 ${r.pot}bb，全下需投入 ${r.cost.shove}bb）`,
+  };
+}
+
+function vsReshoveChart(f: Format, hero: Position, shover: Position): Chart {
+  const r = reshoveData(f, hero, shover);
+  const spot = { id: spotId(f.id, 'vsReshove', hero, shover), format: f, type: 'vsReshove' as const, hero, villain: shover };
+  const actions: ActionKey[] = ['call', 'fold'];
+  return {
+    spot,
+    actions,
+    freq: finalizeFreq({ call: Float64Array.from(r.call) }, actions),
+    prior: Float64Array.from(mttOpenRange(f, hero)),
+    ev: { call: Float64Array.from(r.callEV) },
+    source: { kind: 'computed', note: RS_NOTE(f) + ` 只包含开池范围内的手牌。可被利用度 ≈ ${r.exploitability.toFixed(3)}bb。` },
+    sizing: `你开池 ${openSize(f, hero)}bb，对手全下 ${f.depth}bb，跟注还需 ${r.cost.call}bb`,
   };
 }
 
@@ -440,9 +503,11 @@ export function getChart(id: string): Chart {
   const s = parseSpotId(id);
   const f = s.format;
   let c: Chart;
-  if (isPushFold(f)) {
+  if (s.type === 'reshove' && hasReshove(f)) c = reshoveChart(f, s.hero, s.villain!);
+  else if (s.type === 'vsReshove' && hasReshove(f)) c = vsReshoveChart(f, s.hero, s.villain!);
+  else if (s.type === 'vsShove' && getPushFold(f.players, f.depth)) c = vsShoveChart(f, s.hero, s.villain!);
+  else if (isPushFold(f)) {
     if (s.type === 'push') c = pushChart(f, s.hero);
-    else if (s.type === 'vsShove') c = vsShoveChart(f, s.hero, s.villain!);
     else throw new Error(`该格式没有这个场景: ${id}`);
   } else {
     if (s.type === 'rfi') c = rfiChart(f, s.hero);

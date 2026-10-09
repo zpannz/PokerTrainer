@@ -12,6 +12,7 @@ import { StatsPage } from './pages/StatsPage.tsx';
 import { AboutPage } from './pages/AboutPage.tsx';
 import { SolverPage } from './pages/SolverPage.tsx';
 import { PostflopTrainerPage } from './pages/PostflopTrainerPage.tsx';
+import { ReviewPage } from './pages/ReviewPage.tsx';
 
 function useHashRoute(): string {
   const get = () => (window.location.hash.replace(/^#/, '') || '/').split('?')[0];
@@ -32,6 +33,7 @@ const NAV: { path: string; label: string }[] = [
   { path: '/train', label: '翻前训练' },
   { path: '/solver', label: '翻后求解' },
   { path: '/postflop-train', label: '翻后训练' },
+  { path: '/review', label: '手牌复盘' },
   { path: '/tools/equity', label: '胜率计算' },
   { path: '/tools/icm', label: 'ICM' },
   { path: '/tools/drills', label: '概念练习' },
@@ -56,6 +58,7 @@ export function App() {
   else if (route.startsWith('/train')) page = <TrainerPage />;
   else if (route.startsWith('/solver')) page = <SolverPage />;
   else if (route.startsWith('/postflop-train')) page = <PostflopTrainerPage />;
+  else if (route.startsWith('/review')) page = <ReviewPage />;
   else if (route.startsWith('/tools/equity')) page = <EquityPage />;
   else if (route.startsWith('/tools/icm')) page = <IcmPage />;
   else if (route.startsWith('/tools/drills')) page = <DrillsPage />;

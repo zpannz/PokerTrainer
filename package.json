@@ -16,7 +16,8 @@
     "test:solver": "cd solver && cargo test --release -p pt-solver-core",
     "gen:postflop-jobs": "vite-node scripts/gen-postflop-jobs.ts --",
     "gen:postflop-index": "vite-node scripts/build-postflop-index.ts",
-    "bench:solver": "vite-node scripts/bench-solver.ts"
+    "bench:solver": "vite-node scripts/bench-solver.ts",
+    "gen:reshove": "vite-node scripts/gen-reshove.ts"
   },
   "dependencies": {
     "react": "18.3.1",

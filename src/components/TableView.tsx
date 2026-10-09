@@ -28,20 +28,22 @@ export function tableState(spot: Spot): { seats: Map<Position, SeatState>; pot: 
       });
       break;
     case 'vsOpen':
+    case 'reshove':
     case 'vsShove': {
-      const amt = spot.type === 'vsOpen' ? openSize(f, spot.villain!) : f.depth;
+      const amt = spot.type === 'vsShove' ? f.depth : openSize(f, spot.villain!);
       pos.forEach((p, i) => {
         if (i < villainIdx || (i > villainIdx && i < heroIdx)) {
           const s = seats.get(p)!;
           seats.set(p, { committed: s.committed, status: '弃牌', folded: true });
         }
       });
-      set(spot.villain!, amt, spot.type === 'vsOpen' ? `加注 ${amt}` : `全下 ${amt}`);
+      set(spot.villain!, amt, spot.type === 'vsShove' ? `全下 ${amt}` : `加注 ${amt}`);
       break;
     }
+    case 'vsReshove':
     case 'vs3bet': {
       const o = openSize(f, spot.hero);
-      const t = threeBetSize(f, spot.hero, spot.villain!);
+      const t = spot.type === 'vsReshove' ? null : threeBetSize(f, spot.hero, spot.villain!);
       for (const p of pos) {
         if (p === spot.hero || p === spot.villain) continue;
         const s = seats.get(p)!;

@@ -29,8 +29,12 @@ export const POSITION_SHORT: Record<Position, string> = {
   BB: 'BB',
 };
 
-export const MTT_DEPTHS = [10, 15, 20, 25, 30, 40, 60] as const;
+export const MTT_DEPTHS = [5, 8, 10, 12, 15, 20, 25, 30, 40, 60] as const;
 export const PUSHFOLD_MAX_DEPTH = 20;
+/** 有"开池 vs 再全下"精确计算表的深度 */
+export const RESHOVE_DEPTHS = [15, 20, 25, 30] as const;
+/** 有"跟注全下"精确计算表的深度（≤20 为全下/弃牌格式；25bb 额外提供） */
+export const CALLSHOVE_DEPTHS = [5, 8, 10, 12, 15, 20, 25] as const;
 
 export interface Format {
   id: string;
@@ -89,7 +93,7 @@ export function fourBetSize(f: Format, threeBet: number): number | null {
 }
 
 // ---- 场景 ----
-export type SpotType = 'rfi' | 'vsOpen' | 'vs3bet' | 'push' | 'vsShove';
+export type SpotType = 'rfi' | 'vsOpen' | 'vs3bet' | 'push' | 'vsShove' | 'reshove' | 'vsReshove';
 export type ActionKey = 'fold' | 'call' | 'raise' | 'allin';
 
 export const SPOT_TYPE_NAMES: Record<SpotType, string> = {
@@ -98,10 +102,14 @@ export const SPOT_TYPE_NAMES: Record<SpotType, string> = {
   vs3bet: '面对 3-bet (vs 3-bet)',
   push: '全下/弃牌 (Push/Fold)',
   vsShove: '面对全下 (Call vs Shove)',
+  reshove: '面对开池再全下 (Reshove)',
+  vsReshove: '开池后面对再全下 (Call vs Reshove)',
 };
 
+export const hasReshove = (f: Format): boolean => f.game === 'mtt' && (RESHOVE_DEPTHS as readonly number[]).includes(f.depth);
+
 /** 训练/范围库中使用的场景分类 */
-export type SpotCategory = 'rfi' | 'vsOpen' | 'bbDefense' | 'sbStrategy' | 'vs3bet' | 'push' | 'vsShove';
+export type SpotCategory = 'rfi' | 'vsOpen' | 'bbDefense' | 'sbStrategy' | 'vs3bet' | 'push' | 'vsShove' | 'reshove';
 export const CATEGORY_NAMES: Record<SpotCategory, string> = {
   rfi: '开池 (RFI)',
   vsOpen: '面对加注 (vs Open)',
@@ -110,6 +118,7 @@ export const CATEGORY_NAMES: Record<SpotCategory, string> = {
   vs3bet: '面对 3-bet (vs 3-bet)',
   push: '全下/弃牌 (Push/Fold)',
   vsShove: '面对全下 (Call vs Shove)',
+  reshove: '开池 vs 再全下 (Reshove)',
 };
 
 export interface Spot {
@@ -137,6 +146,7 @@ export function spotCategories(s: Spot): SpotCategory[] {
   if (s.type === 'vsOpen') out.push(s.hero === 'BB' ? 'bbDefense' : s.hero === 'SB' ? 'sbStrategy' : 'vsOpen');
   if (s.type === 'vsShove') out.push(s.hero === 'BB' ? 'bbDefense' : s.hero === 'SB' ? 'sbStrategy' : 'vsShove');
   if (s.type === 'vs3bet') out.push('vs3bet');
+  if (s.type === 'reshove' || s.type === 'vsReshove') out.push('reshove');
   return out;
 }
 
@@ -145,14 +155,25 @@ export function spotsOf(f: Format): Spot[] {
   const pos = positionsOf(f);
   const out: Spot[] = [];
   const mk = (type: SpotType, hero: Position, villain?: Position) => out.push({ id: spotId(f.id, type, hero, villain), format: f, type, hero, villain });
+  const reshove = () => {
+    if (!hasReshove(f)) return;
+    for (let i = 0; i < pos.length - 1; i++) for (let j = i + 1; j < pos.length; j++) mk('reshove', pos[j], pos[i]);
+    for (let i = 0; i < pos.length - 1; i++) for (let j = i + 1; j < pos.length; j++) mk('vsReshove', pos[i], pos[j]);
+  };
   if (isPushFold(f)) {
     for (let i = 0; i < pos.length - 1; i++) mk('push', pos[i]);
     for (let i = 0; i < pos.length - 1; i++) for (let j = i + 1; j < pos.length; j++) mk('vsShove', pos[j], pos[i]);
+    reshove();
     return out;
   }
   for (let i = 0; i < pos.length - 1; i++) mk('rfi', pos[i]);
   for (let i = 0; i < pos.length - 1; i++) for (let j = i + 1; j < pos.length; j++) mk('vsOpen', pos[j], pos[i]);
-  for (let i = 0; i < pos.length - 1; i++) for (let j = i + 1; j < pos.length; j++) mk('vs3bet', pos[i], pos[j]);
+  // 3-bet 即全下的深度，"面对 3-bet"由精确计算的"开池后面对再全下"代替
+  if (!(hasReshove(f) && threeBetSize(f, pos[0], pos[pos.length - 1]) === null))
+    for (let i = 0; i < pos.length - 1; i++) for (let j = i + 1; j < pos.length; j++) mk('vs3bet', pos[i], pos[j]);
+  if ((CALLSHOVE_DEPTHS as readonly number[]).includes(f.depth) && f.game === 'mtt')
+    for (let i = 0; i < pos.length - 1; i++) for (let j = i + 1; j < pos.length; j++) mk('vsShove', pos[j], pos[i]);
+  reshove();
   return out;
 }
 
@@ -161,9 +182,9 @@ export function actionLabel(spot: Spot, a: ActionKey): string {
     case 'fold':
       return '弃牌 (Fold)';
     case 'call':
-      return spot.type === 'vsShove' || (spot.type === 'vs3bet' && spot.format.game === 'mtt' && spot.format.depth <= 25) ? '跟注全下 (Call)' : '跟注 (Call)';
+      return spot.type === 'vsShove' || spot.type === 'vsReshove' || (spot.type === 'vs3bet' && spot.format.game === 'mtt' && spot.format.depth <= 25) ? '跟注全下 (Call)' : '跟注 (Call)';
     case 'allin':
-      return '全下 (All-in)';
+      return spot.type === 'reshove' ? '再全下 (Reshove)' : '全下 (All-in)';
     case 'raise':
       if (spot.type === 'rfi') return '加注 (Open Raise)';
       if (spot.type === 'vsOpen') return '3-bet';
@@ -192,6 +213,10 @@ export function describeSpot(s: Spot): string {
     }
     case 'vsShove':
       return `${P(s.villain)} 全下 ${f.depth}bb，其余弃牌，你在 ${P(s.hero)}`;
+    case 'reshove':
+      return `${P(s.villain)} 加注到 ${openSize(f, s.villain!)}bb，其余弃牌，你在 ${P(s.hero)}（只考虑再全下或弃牌）`;
+    case 'vsReshove':
+      return `你在 ${P(s.hero)} 加注到 ${openSize(f, s.hero)}bb，${P(s.villain)} 全下 ${f.depth}bb，其余弃牌`;
   }
 }
 
@@ -208,5 +233,16 @@ export function spotTitle(s: Spot): string {
       return `${P(s.hero)} 开池，面对 ${P(s.villain)} 3-bet`;
     case 'vsShove':
       return `${P(s.hero)} 面对 ${P(s.villain)} 全下`;
+    case 'reshove':
+      return `${P(s.hero)} 对 ${P(s.villain)} 开池再全下`;
+    case 'vsReshove':
+      return `${P(s.hero)} 开池，面对 ${P(s.villain)} 再全下`;
   }
+}
+
+const CATEGORY_ORDER: SpotCategory[] = ['rfi', 'push', 'vsOpen', 'vsShove', 'bbDefense', 'sbStrategy', 'vs3bet', 'reshove'];
+/** 某个格式下实际存在的场景分类（按固定顺序） */
+export function categoriesOf(f: Format): SpotCategory[] {
+  const set = new Set(spotsOf(f).flatMap(spotCategories));
+  return CATEGORY_ORDER.filter((c) => set.has(c));
 }
