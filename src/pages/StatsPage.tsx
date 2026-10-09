@@ -5,10 +5,12 @@ import { type Tally, loadStats, resetStats } from '../lib/trainer.ts';
 import { exportAll, importAll, load } from '../lib/storage.ts';
 import { CONCEPT_NAMES, type ConceptType } from '../lib/concepts.ts';
 import { LESSON_TITLES } from './LessonsPage.tsx';
+import { NODE_TYPE_NAMES, type NodeType, loadPfStats, resetPfStats } from '../lib/postflopTrainer.ts';
 
 export function StatsPage() {
   const [stats, setStats] = useState(loadStats());
   const [msg, setMsg] = useState('');
+  const [pf, setPf] = useState(loadPfStats());
   const formats = allFormats();
   const byFormat = new Map<string, { cat: SpotCategory; pos: Position; t: Tally }[]>();
   for (const [k, t] of Object.entries(stats.tallies)) {
@@ -44,7 +46,7 @@ export function StatsPage() {
   return (
     <div className="page">
       <h1>学习统计</h1>
-      <p className="muted">所有数据只保存在这台设备的浏览器中（localStorage）。共回答 {stats.totalAnswered} 道翻前题。</p>
+      <p className="muted">所有数据只保存在这台设备的浏览器中（localStorage）。共回答 {stats.totalAnswered} 道翻前题。翻后求解结果缓存在 IndexedDB，可在"翻后求解"页面管理。</p>
       {byFormat.size === 0 && <div className="card">还没有训练记录，去"翻前训练"做几题吧。</div>}
       {formats
         .filter((f) => byFormat.has(f.id))
@@ -109,6 +111,49 @@ export function StatsPage() {
           </div>
         </div>
       )}
+      <div className="card">
+        <h3>翻后训练（{pf.total} 题）</h3>
+        {Object.keys(pf.tallies).length === 0 ? (
+          <p className="muted">还没有翻后训练记录。</p>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>局面</th>
+                <th>决策点</th>
+                <th>题数</th>
+                <th>正确率</th>
+                <th>平均 EV 损失</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(pf.tallies).map(([k, t]) => {
+                const [g, type] = k.split('|');
+                return (
+                  <tr key={k}>
+                    <td>{g}</td>
+                    <td>{NODE_TYPE_NAMES[type as NodeType] ?? type}</td>
+                    <td className="mono">{t.n}</td>
+                    <td className="mono">{Math.round(((t.best + t.ok) / t.n) * 100)}%</td>
+                    <td className="mono">{(t.evLoss / t.n).toFixed(2)}bb</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        {pf.mistakes.length > 0 && <p className="muted small">翻后错题本：{pf.mistakes.length} 道（训练时约 30% 的题来自错题本，连续答对 2 次后移除）。</p>}
+        {pf.total > 0 && (
+          <button
+            className="btn small danger"
+            onClick={() => {
+              if (confirm('确定清空翻后训练统计和错题本吗？')) setPf(resetPfStats());
+            }}
+          >
+            清空翻后训练统计
+          </button>
+        )}
+      </div>
       <div className="card">
         <h3>概念练习与课程</h3>
         <ul>

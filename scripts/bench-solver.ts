@@ -20,7 +20,7 @@ if (process.env.NODONK) sizes[0].flop.bet = '';
 for (const [k, st] of [['FLOP', 'flop'], ['TURN', 'turn'], ['RIVER', 'river']] as const)
   if (process.env[k]) for (const p of sizes) p[st].bet = process.env[k]!;
 if (process.env.IPFLOP) sizes[1].flop.bet = process.env.IPFLOP;
-const raiseCap = (process.env.CAPS ?? '2,1,1').split(',').map(Number) as [number, number, number];
+const raiseCap = process.env.CAPS ? (process.env.CAPS.split(',').map(Number) as [number, number, number]) : preset.raiseCap;
 const info = s.init({ ranges: [r.oop, r.ip], board: flop, pot, stack: toChips(sc.stackBB), sizes, raiseCap } as never);
 console.log(`${sc.title} ${flop} 预设 ${preset.name}：OOP ${info.hands[0].length} 组合，IP ${info.hands[1].length} 组合；预计内存 ${(info.memory[0] / 2 ** 20).toFixed(0)}MB（压缩 ${(info.memory[1] / 2 ** 20).toFixed(0)}MB）`);
 if (process.env.INFO_ONLY) process.exit(0);

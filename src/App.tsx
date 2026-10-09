@@ -71,7 +71,7 @@ export function App() {
     <FormatProvider>
       <header className="topbar">
         <a className="brand" href="#/">
-          <span className="brand-suit">♠</span> 翻前 GTO 训练
+          <span className="brand-suit">♠</span> 扑克 GTO 训练
         </a>
         <nav className="nav">
           {NAV.map((n) => (
@@ -83,7 +83,14 @@ export function App() {
       </header>
       <main className="main">{page}</main>
       <footer className="footer">
-        学习与复盘工具 · 只支持手动输入局面，不读取牌桌、不做实时辅助 · 学习数据只保存在本机浏览器
+        学习与复盘工具 · 只支持手动输入局面，不读取牌桌、不做实时辅助 · 学习数据只保存在本机浏览器 ·{' '}
+        <a href="https://github.com/zpannz/PokerTrainer" target="_blank" rel="noreferrer">
+          源代码（AGPL-3.0）
+        </a>{' '}
+        · 翻后求解引擎{' '}
+        <a href="https://github.com/b-inary/postflop-solver" target="_blank" rel="noreferrer">
+          postflop-solver
+        </a>
       </footer>
     </FormatProvider>
   );

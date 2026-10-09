@@ -188,7 +188,7 @@ export function RangesPage() {
           </div>
           <RangeGrid data={shown} labels={labels} editable={editing} onPaint={paint} onSelect={(h) => setSelected(h)} highlight={selected} />
           <ActionSummary data={shown} labels={labels} />
-          {spot.type === 'vs3bet' && <p className="muted small">灰色格子：开池时不会玩的手牌。比例按开池范围计算。</p>}
+          {(spot.type === 'vs3bet' || spot.type === 'vsReshove') && <p className="muted small">灰色格子：开池时不会玩的手牌。比例按开池范围计算。</p>}
         </div>
         <aside className="range-side">
           {selected !== null && (

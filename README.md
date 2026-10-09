@@ -1,39 +1,77 @@
-# PokerTrainer —— 德州扑克翻前 GTO 学习训练工具（第一期）
+# PokerTrainer —— 德州扑克 GTO 学习训练工具（第二期）
 
 网页版学习 / 复盘工具，全中文界面（术语附英文）。主要面向电脑浏览器，兼容手机。
 
-> 本工具只用于学习和复盘：所有局面都由用户手动选择或输入，**不读取牌桌、不截屏识别、没有悬浮窗或实时提示**。学习进度和统计只保存在本机浏览器（localStorage）。
+> 本工具只用于学习和复盘：所有局面都由用户手动选择或输入，**不读取牌桌、不截屏识别、没有悬浮窗或实时提示**。学习进度、统计和求解结果只保存在本机浏览器（localStorage / IndexedDB）。
 
 ## 功能
 
 | 模块 | 内容 |
 | --- | --- |
-| 牌局格式 | 6 / 9 人桌现金局 100bb；6 / 9 人桌锦标赛（大盲前注 1bb）10/15/20/25/30/40/60bb |
-| 翻前范围库 | 开池 (RFI)、面对加注 (call / 3-bet / fold)、面对 3-bet、大盲防守、小盲策略；锦标赛 ≤20bb 为全下/弃牌 (Push/Fold) 与面对全下的跟注范围。13×13 格子按比例显示混合策略，悬停显示比例和组合数。每张表标注来源与可信度 |
-| 范围编辑器 | 在格子上涂改，或粘贴 `AA-22, A2s+, KTo+`、`AKs:0.5`、`[50]A5s,A4s[/50]` 等通用格式导入，替换默认数据；可导出文字 / JSON |
-| 翻前训练 | 随机出题，判分为 最佳 / 可接受（≥10% 的混合低频选项）/ 错误，显示正确比例；快捷键 F/C/R/A、1~4、空格；按位置/场景统计正确率；错题本 + 按错误率加权出题；每轮总结与错题回顾 |
-| 胜率计算器 | 手牌对手牌、手牌对范围、范围对范围，最多 3 人，可设公共牌；小计算量精确枚举，大计算量蒙特卡洛并显示误差（Web Worker） |
-| ICM 计算器 | Malmuth-Harville 精确算法，最多 16 人 |
-| 概念练习 | 底池赔率、需要的胜率、MDF、诈唬比例、数 outs、2/4 法则 |
-| 入门课程 | 手牌强度、位置、胜率、范围、锦标赛 ICM 基础，每节 5 题小测验 |
+| 牌局格式 | 6 / 9 人桌现金局 100bb；6 / 9 人桌锦标赛（大盲前注 1bb）5/8/10/12/15/20/25/30/40/60bb |
+| 翻前范围库 | 开池、面对加注、面对 3-bet、大盲防守、小盲策略；锦标赛全下/弃牌、跟注全下、**开池 vs 再全下**。13×13 格子显示混合策略，每张表标注来源与可信度 |
+| 范围方案 | 多套范围方案随时切换（"默认数据"与"我导入的版本"）；**批量导入**分节文字 / CSV / PioSolver、GTO+ 写法 / 方案 JSON；格子涂改；导出 |
+| 翻前训练 | 随机出题，判分 最佳 / 可接受 / 错误；快捷键；按位置/场景统计；错题本加权出题；页面标明当前数据方案 |
+| **翻后求解器** | 浏览器内求解（postflop-solver → WebAssembly，Web Worker 单线程）。双方范围可从范围库直接选（如"BTN 开池 vs BB 跟注"）或手动编辑；公共牌 3~5 张；底池、有效筹码；3 套下注尺寸预设 + 自定义；开始前估算内存并提醒；进度、可被利用度、随时停止；13×13 动作比例、整体比例、每手牌 EV 与胜率；沿博弈树点击、发转牌/河牌；结果缓存到 IndexedDB |
+| **预计算牌面库** | GitHub Actions 批量求解代表性翻牌（6 人桌 100bb BTN vs BB、CO vs BB，各约 50 个翻牌），生成压缩 JSON 放在网站 `postflop/` 下 |
+| **翻后训练** | 从牌面库或自己求解的局面出题，按求解结果判分并显示 EV 损失；牌面结构筛选；错题本；快捷键 |
+| **手牌复盘** | 手动输入或粘贴 PokerStars / GGPoker 手牌历史；翻前对照范围库，翻后对照牌面库 / 缓存 / 现场求解（含转牌、河牌） |
+| 胜率计算器、ICM、概念练习、入门课程 | 同第一期 |
 
 ## 数据来源与可信度
 
 | 标注 | 内容 | 说明 |
 | --- | --- | --- |
-| **计算得出** | 锦标赛 10/15/20bb 全下/弃牌表与跟注表、胜率、ICM | 本项目自行计算，见下文 |
-| **公开资料整理** | 6 人桌现金局 100bb 开池范围（9 人桌 LJ 之后的位置沿用同距按钮位置） | 按公开求解器图表的典型结构整理，**非求解器原始导出**，单手牌频率可能有 10~20 个百分点偏差 |
-| **近似** | 面对加注、面对 3-bet、盲注防守、9 人桌前位开池、锦标赛 25~60bb | 参数化生成：用精确胜率矩阵算出每手牌对对手范围的胜率排序，再按典型频率分配动作。**不是求解器结果** |
+| **计算得出** | 锦标赛 5~20bb 全下/弃牌、5~25bb 跟注全下、15~30bb 开池 vs 再全下；胜率；ICM；翻后求解 | 本项目自行计算，见下文。翻后结果是"简化博弈树（有限下注尺寸）的均衡"，每个结果标注可被利用度 |
+| **公开资料整理** | 6 人桌现金局 100bb 开池范围 | 按公开求解器图表的典型结构整理，**非求解器原始导出**，单手牌频率可能有 10~20 个百分点偏差 |
+| **近似** | 面对加注、面对 3-bet、盲注防守、9 人桌前位开池、锦标赛 25~60bb 的开池/3-bet 体系 | 参数化生成，**不是求解器结果** |
+| **用户方案** | 你导入/修改的范围 | 可信度取决于你的数据来源（导入时可填写说明） |
 
 ### 计算方法
 
-- **169×169 胜率矩阵**（`scripts/gen-equity-matrix.ts`）：每对起手牌类别枚举所有互不冲突的组合（花色同构归并为 47,086 个代表），对每个代表枚举全部 C(48,5) 种公共牌，精确计算。
-- **全下/弃牌纳什均衡**（`src/lib/nash.ts`，`scripts/gen-pushfold.ts`）：筹码 EV、各家筹码相同、大盲前注 1bb；首个入池者只能全下或弃牌，后面玩家跟注或弃牌，只考虑一人跟注；成对的牌去除效应；虚拟博弈迭代 4000 轮。不考虑 ICM。
-- **牌力评估器**：位运算实现，已用全部 133,784,560 种 7 张牌组合核对牌型分布（`npm run verify:evaluator`）。
+- **169×169 胜率矩阵**（`scripts/gen-equity-matrix.ts`）：精确枚举。
+- **全下/弃牌纳什均衡**（`src/lib/nash.ts`，`scripts/gen-pushfold.ts`）：筹码 EV、大盲前注 1bb、只考虑一人跟注、成对的牌去除效应，虚拟博弈 6000 轮，可被利用度 < 0.02bb。
+- **开池 vs 再全下**（`src/lib/reshove.ts`，`scripts/gen-reshove.ts`）：开池者按范围库的开池范围加注到标准尺寸（开池范围本身不参与求解），后位只能再全下或弃牌，其余玩家弃牌，开池者跟注或弃牌；两人子博弈用虚拟博弈求解，可被利用度 < 0.02bb。不考虑平跟和 ICM。
+- **翻后求解**（`solver/`）：[postflop-solver](https://github.com/b-inary/postflop-solver)（Discounted CFR，无牌抽象，花色同构合并），`solver/core` 封装建树、加注次数上限、节点读取；`solver/wasm` 编译为 WebAssembly（启用 SIMD，无 wasm-bindgen，胶水代码见 `src/postflop/wasmSolver.ts`）；`solver/precompute` 为原生多线程批量程序。
 
-### 关于 LibreGTO
+### 求解器正确性核对
 
-参考了 [rdpharr/libregto](https://github.com/rdpharr/libregto) 的功能划分。其 README 写有 "License: MIT"，但仓库中**没有 LICENSE 文件**，授权条款不完整，因此本项目**没有复制它的代码或数据**，全部自行实现。LibreGTO 的范围数据是作者综合 GTO Wizard、PokerCoaching.com、Upswing Poker、Red Chip Poker 等公开资料手工整理的"共识范围"（混合策略简化为单一动作），其引用的研究文档不在仓库中。
+`solver/core` 与 `tests/postflop.test.ts`（分别在原生和 WebAssembly 上运行）用河牌"极化范围 vs 抓诈唬范围"玩具局面核对理论值：
+
+| 下注尺寸 | 理论：诈唬占空气比例 / 跟注频率 | 求解结果 |
+| --- | --- | --- |
+| 底池 | 50% / 50% | 误差 < 2 个百分点 |
+| 半池 | 33.3% / 66.7% | 误差 < 2 个百分点 |
+
+并核对抓诈唬牌跟注 EV ≈ 弃牌 EV、坚果牌过牌被判为错误等。
+
+## 翻后求解：速度与内存（参考）
+
+BTN 开池 vs BB 跟注，100bb，翻牌 Qs8h3d，双方各约 650 个组合，单线程 WebAssembly（Node 22 / Chrome 同为 V8）：
+
+| 预设 | 内存（32 位 / 16 位压缩） | 到 0.5% 底池 |
+| --- | --- | --- |
+| 快速（翻牌 33%，转牌 66%，河牌 75%） | 约 0.9GB / 0.47GB | 约 80 秒（1% 约 60 秒） |
+| 标准（翻牌 33%/75%） | 约 1.5GB / 0.78GB | 见下方 |
+| 多尺寸 | 约 5GB / 2.6GB | 超出浏览器上限，适合窄范围或转牌起 |
+
+转牌/河牌开始的局面通常几秒内完成。浏览器 WebAssembly 内存上限 4GB，页面在估算超过约 3.2GB 时禁止开始，超过 1.5GB 时提醒。
+
+## 预计算牌面库（GitHub Actions）
+
+工作流：`.github/workflows/postflop-precompute.yml`（Actions → **翻后牌面库预计算** → Run workflow）
+
+| 输入 | 默认 | 说明 |
+| --- | --- | --- |
+| scenarios | `cash6-100/srp/BTN/BB,cash6-100/srp/CO/BB` | 局面，格式 `格式id/srp或3bp/开池者/对手`，如 `cash6-100/3bp/CO/BTN`、`mtt6-40/srp/BTN/BB` |
+| flops | 50 | 代表性翻牌数量（按花色结构、对子、最高牌、连接程度分层选取，`src/postflop/flops.ts`） |
+| flop_list | 空 | 指定翻牌（填写后忽略数量） |
+| target | 0.3 | 目标可被利用度（% 底池） |
+| shards | 4 | 并行机器数 |
+| commit | 是 | 把结果提交到当前分支；在默认分支上运行时会自动触发部署 |
+
+已存在且配置相同的翻牌会跳过，便于逐步扩充。在 4 核 Actions 机器上每个翻牌约 15~50 秒；默认 2 个局面 × 50 个翻牌 ≈ 4 台机器各 10~20 分钟。推送修改求解器相关代码时会自动用 2 个翻牌做冒烟测试（不提交）。
+仓库中目前已有 BTN vs BB、CO vs BB 各 3 个翻牌（Qs8h3d、AsKh2s、9s6h5h）用于验证流程，**完整的 50 个翻牌需要手动触发一次工作流**。
 
 ## 开发
 
@@ -41,15 +79,31 @@
 npm install
 npm run dev          # 本地开发
 npm test             # 单元测试（Vitest）
+npm run test:solver  # 求解器 Rust 单元测试
 npm run typecheck
 npm run build        # 生成 dist/
 
+# WebAssembly 求解器（需要 Rust；工具链版本见 solver/rust-toolchain.toml）
+npm run build:wasm   # 编译到 src/postflop/wasm/pt_solver.wasm（仓库里已有编译好的文件）
+npm run bench:solver -- Qs8h3d simple 0.5   # 测量求解速度与内存
+
 # 重新生成预计算数据（可选）
 npm run gen:equity   # 约 15 分钟（4 核）
-npm run gen:nash     # 约 2 分钟
-npm run verify:evaluator
+npm run gen:nash     # 约 6 分钟
+npm run gen:reshove  # 约 2 分钟
+npm run gen:postflop-jobs -- --flop-list Qs8h3d,AsKh2s --out jobs.json
+(cd solver && cargo run --release -p pt-precompute -- ../jobs.json ../public/postflop)
+npm run gen:postflop-index
 ```
 
 ## 部署
 
-`.github/workflows/deploy.yml`：推送到 `main` 后自动测试、构建并部署到 GitHub Pages。首次使用需在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
+`.github/workflows/deploy.yml`：推送到 `main` 后自动测试、**从源码重新编译 WebAssembly**、构建并部署到 GitHub Pages。首次使用需在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
+
+## 许可证
+
+本项目以 **GNU AGPL-3.0-or-later** 发布（见 [LICENSE](LICENSE)）。翻后求解引擎 [postflop-solver](https://github.com/b-inary/postflop-solver)（Copyright (C) 2022 Wataru Inariba）为 AGPL-3.0-or-later，编译进网页分发，因此整个项目采用相同许可证，并在网站上提供源代码链接。第三方组件与署名见 [NOTICE.md](NOTICE.md)。
+
+### 关于 LibreGTO
+
+参考了 [rdpharr/libregto](https://github.com/rdpharr/libregto) 的功能划分。其仓库中没有 LICENSE 文件，因此本项目没有复制它的代码或数据。
