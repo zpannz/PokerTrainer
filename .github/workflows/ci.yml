@@ -15,6 +15,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            solver/target
+          key: wasm-${{ runner.os }}-${{ hashFiles('solver/Cargo.lock', 'solver/rust-toolchain.toml') }}
+      - name: 从源码编译 WebAssembly 求解器
+        run: npm run build:wasm
+      - name: 求解器单元测试（Rust）
+        run: npm run test:solver
       - run: npm run typecheck
       - run: npm test
       - run: npx vite build

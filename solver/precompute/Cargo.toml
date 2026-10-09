@@ -1,0 +1,13 @@
+[package]
+name = "pt-precompute"
+version = "0.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[dependencies]
+pt-solver-core = { path = "../core" }
+postflop-solver = { workspace = true, features = ["rayon"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rayon = "1"

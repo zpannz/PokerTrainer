@@ -1,0 +1,15 @@
+[package]
+name = "pt-solver-wasm"
+version = "0.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+pt-solver-core = { path = "../core" }
+serde_json = { workspace = true }
+serde = { workspace = true }
+postflop-solver = { workspace = true }

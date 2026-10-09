@@ -1,7 +1,7 @@
 {
   "name": "poker-gto-trainer",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,13 @@
     "typecheck": "tsc --noEmit -p .",
     "gen:equity": "node --experimental-strip-types scripts/gen-equity-matrix.ts",
     "gen:nash": "node --experimental-strip-types scripts/gen-pushfold.ts",
-    "verify:evaluator": "node --experimental-strip-types scripts/verify-evaluator.ts"
+    "verify:evaluator": "node --experimental-strip-types scripts/verify-evaluator.ts",
+    "build:wasm": "cd solver && cargo build --release -p pt-solver-wasm --target wasm32-unknown-unknown && cp target/wasm32-unknown-unknown/release/pt_solver_wasm.wasm ../src/postflop/wasm/pt_solver.wasm",
+    "test:solver": "cd solver && cargo test --release -p pt-solver-core",
+    "gen:postflop-jobs": "vite-node scripts/gen-postflop-jobs.ts --",
+    "gen:postflop-index": "vite-node scripts/build-postflop-index.ts",
+    "bench:solver": "vite-node scripts/bench-solver.ts",
+    "gen:reshove": "vite-node scripts/gen-reshove.ts"
   },
   "dependencies": {
     "react": "18.3.1",

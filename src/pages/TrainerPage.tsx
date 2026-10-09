@@ -4,6 +4,7 @@ import { TableView } from '../components/TableView.tsx';
 import { CardRow } from '../components/Cards.tsx';
 import { HandInfo, RangeGrid, ActionSummary, ACTION_COLORS } from '../components/RangeGrid.tsx';
 import { SourceBadge } from '../components/SourceBadge.tsx';
+import { SchemeBar } from '../components/SchemePanel.tsx';
 import {
   type ActionKey,
   type Position,
@@ -13,7 +14,7 @@ import {
   POSITION_SHORT,
   actionLabel,
   describeSpot,
-  isPushFold,
+  categoriesOf,
   parseSpotId,
   positionsOf,
   spotCategories,
@@ -32,7 +33,7 @@ import {
   recordAnswer,
   saveStats,
 } from '../lib/trainer.ts';
-import { effectiveChart } from '../data/overrides.ts';
+import { activeSchemeName, effectiveChart } from '../data/overrides.ts';
 import { load, save } from '../lib/storage.ts';
 
 interface Answer {
@@ -55,8 +56,7 @@ const DEFAULT_SETTINGS: Settings = { categories: ['rfi'], positions: [], rounds:
 
 export function TrainerPage() {
   const { format } = useFormat();
-  const pf = isPushFold(format);
-  const availableCats: SpotCategory[] = pf ? ['push', 'vsShove', 'bbDefense', 'sbStrategy'] : ['rfi', 'vsOpen', 'bbDefense', 'sbStrategy', 'vs3bet'];
+  const availableCats: SpotCategory[] = categoriesOf(format);
   const [settings, setSettings] = useState<Settings>(() => load('trainerSettings', DEFAULT_SETTINGS));
   const cats = settings.categories.filter((c) => availableCats.includes(c));
   const effectiveCats = cats.length ? cats : [availableCats[0]];
@@ -171,6 +171,7 @@ export function TrainerPage() {
       <div className="page">
         <h1>翻前训练</h1>
         <FormatPicker />
+        <SchemeBar />
         <div className="card">
           <h3>场景</h3>
           <div className="chips">
@@ -225,7 +226,7 @@ export function TrainerPage() {
           第 <strong>{Math.min(answers.length + (phase === 'question' ? 1 : 0), total)}</strong> / {total} 题
         </span>
         <span className="muted">
-          {format.label} · 正确 {correctSoFar}/{answers.length}
+          {format.label} · 数据：{activeSchemeName()} · 正确 {correctSoFar}/{answers.length}
         </span>
         <button className="link" onClick={() => setPhase('summary')}>
           结束本轮

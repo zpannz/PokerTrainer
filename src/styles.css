@@ -1011,3 +1011,188 @@ kbd {
     grid-column: 2 / -1;
   }
 }
+
+/* ---------- 翻后 ---------- */
+.pf-cell {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg2);
+  cursor: pointer;
+  color: var(--text);
+  text-shadow: 0 0 2px var(--panel), 0 0 2px var(--panel);
+}
+.pf-cell .pf-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.pf-cell span {
+  position: relative;
+  z-index: 1;
+}
+.pf-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 640px) minmax(260px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .pf-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.pf-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.pf-form textarea {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.pf-sizes {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.pf-sizes td,
+.pf-sizes th {
+  padding: 3px 4px;
+  text-align: left;
+}
+.pf-sizes input {
+  width: 100%;
+  min-width: 70px;
+}
+.progress {
+  height: 8px;
+  background: var(--bg2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+.progress > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin: 8px 0;
+}
+.breadcrumb button {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.breadcrumb button.cur {
+  border-color: var(--accent);
+}
+.node-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.node-actions button {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.combo-table {
+  width: 100%;
+  font-size: 12.5px;
+  border-collapse: collapse;
+}
+.combo-table td,
+.combo-table th {
+  padding: 2px 4px;
+  text-align: right;
+}
+.combo-table td:first-child,
+.combo-table th:first-child {
+  text-align: left;
+}
+.deal-cards {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 2px;
+  max-width: 520px;
+}
+.deal-cards button {
+  font-size: 12px;
+  padding: 3px 0;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  cursor: pointer;
+}
+.deal-cards button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.stat-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 13px;
+}
+.warn-box {
+  border: 1px solid var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+.err-box {
+  border: 1px solid var(--bad);
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+.scheme-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0 10px;
+  font-size: 13px;
+}
+.review-step {
+  border-left: 3px solid var(--line);
+  padding: 6px 10px;
+  margin: 8px 0;
+}
+.review-step.best {
+  border-color: var(--good);
+}
+.review-step.ok {
+  border-color: var(--ok);
+}
+.review-step.wrong {
+  border-color: var(--bad);
+}
+.action-rows .row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 3px 0;
+  flex-wrap: wrap;
+}
+.action-rows select,
+.action-rows input {
+  max-width: 120px;
+}

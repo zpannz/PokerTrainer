@@ -1,0 +1,158 @@
+name: 翻后牌面库预计算
+
+# 手动触发（Actions → 翻后牌面库预计算 → Run workflow）：批量求解代表性翻牌，结果提交到 public/postflop/ 并重新部署网站。
+# 推送修改求解器相关代码时，自动用 2 个翻牌做一次冒烟测试（不提交结果）。
+on:
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: '局面（逗号分隔），格式 格式id/srp|3bp/开池者/对手，例如 cash6-100/srp/BTN/BB'
+        default: 'cash6-100/srp/BTN/BB,cash6-100/srp/CO/BB'
+      flops:
+        description: '代表性翻牌数量（按花色结构、高低牌、连接程度分层选取）'
+        default: '50'
+      flop_list:
+        description: '（可选）指定翻牌，逗号分隔，例如 AsKh2s,9s6h5h；填写后忽略"翻牌数量"'
+        default: ''
+      target:
+        description: '目标可被利用度（% 底池）'
+        default: '0.3'
+      shards:
+        description: '并行任务数（每个任务一台 4 核机器）'
+        default: '4'
+      commit:
+        description: '把结果提交到当前分支并重新部署'
+        type: boolean
+        default: true
+  push:
+    branches-ignore: [main]
+    paths:
+      - 'solver/**'
+      - 'scripts/gen-postflop-jobs.ts'
+      - 'scripts/build-postflop-index.ts'
+      - 'src/postflop/**'
+      - '.github/workflows/postflop-precompute.yml'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: postflop-precompute-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.m.outputs.shards }}
+      count: ${{ steps.m.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 生成任务列表
+        env:
+          SCENARIOS: ${{ github.event_name == 'workflow_dispatch' && inputs.scenarios || 'cash6-100/srp/BTN/BB' }}
+          FLOPS: ${{ github.event_name == 'workflow_dispatch' && inputs.flops || '2' }}
+          FLOP_LIST: ${{ github.event_name == 'workflow_dispatch' && inputs.flop_list || '' }}
+          TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || '0.5' }}
+          LIMIT: ${{ github.event_name == 'workflow_dispatch' && '0' || '2' }}
+        run: |
+          ARGS="--scenarios $SCENARIOS --target $TARGET --limit $LIMIT --out jobs.json"
+          if [ -n "$FLOP_LIST" ]; then ARGS="$ARGS --flop-list $FLOP_LIST"; else ARGS="$ARGS --flops $FLOPS"; fi
+          npx vite-node scripts/gen-postflop-jobs.ts -- $ARGS
+      - id: m
+        env:
+          SHARDS: ${{ github.event_name == 'workflow_dispatch' && inputs.shards || '1' }}
+        run: |
+          N=$(( SHARDS < 1 ? 1 : (SHARDS > 20 ? 20 : SHARDS) ))
+          echo "shards=$(node -e "console.log(JSON.stringify([...Array($N).keys()]))")" >> "$GITHUB_OUTPUT"
+          echo "count=$N" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jobs
+          path: jobs.json
+
+  solve:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            solver/target
+          key: precompute-${{ runner.os }}-${{ hashFiles('solver/Cargo.lock', 'solver/rust-toolchain.toml') }}
+      - name: 编译求解器（原生、多线程）
+        working-directory: solver
+        run: cargo build --release -p pt-precompute
+      - name: 求解器单元测试（河牌极化 vs 抓诈唬理论比例）
+        if: matrix.shard == 0
+        working-directory: solver
+        run: cargo test --release -p pt-solver-core
+      - uses: actions/download-artifact@v4
+        with:
+          name: jobs
+      - name: 求解
+        run: |
+          mkdir -p out
+          # 已有结果复制过来，配置相同的翻牌会跳过
+          cp -r public/postflop/. out/ 2>/dev/null || true
+          solver/target/release/pt-precompute jobs.json out --shard ${{ matrix.shard }}/${{ needs.prepare.outputs.count }}
+          rm -f out/index.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: postflop-${{ matrix.shard }}
+          path: out/
+          retention-days: 7
+
+  publish:
+    needs: solve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: postflop-*
+          path: artifacts
+      - name: 合并结果并生成索引
+        run: |
+          mkdir -p public/postflop
+          for d in artifacts/postflop-*; do cp -r "$d"/. public/postflop/; done
+          npx vite-node scripts/build-postflop-index.ts
+          du -sh public/postflop
+          ls public/postflop
+      - name: 检查网站能用这些数据构建
+        run: |
+          npm test
+          npx vite build
+      - name: 提交结果
+        if: github.event_name == 'workflow_dispatch' && inputs.commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/postflop
+          if git diff --cached --quiet; then echo "没有变化"; exit 0; fi
+          git commit -m "预计算翻后牌面库：${{ inputs.scenarios }}（${{ inputs.flop_list || format('{0} 个翻牌', inputs.flops) }}）"
+          git push origin HEAD:${{ github.ref_name }}
+      - name: 重新部署网站
+        if: github.event_name == 'workflow_dispatch' && inputs.commit && github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref ${{ github.ref_name }}

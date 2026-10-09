@@ -1,0 +1,179 @@
+{
+ "generated": "2026-10-09T12:01:50.253Z",
+ "scenarios": [
+  {
+   "id": "cash6-100/srp/BTN/BB",
+   "dir": "cash6-100_srp_BTN_BB",
+   "title": "BTN 开池 vs BB 跟注",
+   "players": [
+    "BB",
+    "BTN"
+   ],
+   "pot": 550,
+   "stack": 9750,
+   "sizes": [
+    {
+     "flop": {
+      "bet": "",
+      "raise": "3x"
+     },
+     "river": {
+      "bet": "75%",
+      "raise": "3x"
+     },
+     "turn": {
+      "bet": "66%",
+      "raise": "3x"
+     }
+    },
+    {
+     "flop": {
+      "bet": "33%, 75%",
+      "raise": "3x"
+     },
+     "river": {
+      "bet": "75%",
+      "raise": "3x"
+     },
+     "turn": {
+      "bet": "66%",
+      "raise": "3x"
+     }
+    }
+   ],
+   "raiseCap": [
+    1,
+    0,
+    0
+   ],
+   "flops": [
+    {
+     "flop": "9s6h5h",
+     "texture": {
+      "suit": "twotone",
+      "pair": "unpaired",
+      "high": "low",
+      "connect": "connected"
+     },
+     "weight": 504,
+     "expl": 0.28,
+     "iter": 80,
+     "size": 189779
+    },
+    {
+     "flop": "AsKh2s",
+     "texture": {
+      "suit": "twotone",
+      "pair": "unpaired",
+      "high": "A",
+      "connect": "semi"
+     },
+     "weight": 468,
+     "expl": 0.23,
+     "iter": 90,
+     "size": 177587
+    },
+    {
+     "flop": "Qs8h3d",
+     "texture": {
+      "suit": "rainbow",
+      "pair": "unpaired",
+      "high": "Q",
+      "connect": "dry"
+     },
+     "weight": 360,
+     "expl": 0.25,
+     "iter": 100,
+     "size": 188376
+    }
+   ]
+  },
+  {
+   "id": "cash6-100/srp/CO/BB",
+   "dir": "cash6-100_srp_CO_BB",
+   "title": "CO 开池 vs BB 跟注",
+   "players": [
+    "BB",
+    "CO"
+   ],
+   "pot": 550,
+   "stack": 9750,
+   "sizes": [
+    {
+     "flop": {
+      "bet": "",
+      "raise": "3x"
+     },
+     "river": {
+      "bet": "75%",
+      "raise": "3x"
+     },
+     "turn": {
+      "bet": "66%",
+      "raise": "3x"
+     }
+    },
+    {
+     "flop": {
+      "bet": "33%, 75%",
+      "raise": "3x"
+     },
+     "river": {
+      "bet": "75%",
+      "raise": "3x"
+     },
+     "turn": {
+      "bet": "66%",
+      "raise": "3x"
+     }
+    }
+   ],
+   "raiseCap": [
+    1,
+    0,
+    0
+   ],
+   "flops": [
+    {
+     "flop": "9s6h5h",
+     "texture": {
+      "suit": "twotone",
+      "pair": "unpaired",
+      "high": "low",
+      "connect": "connected"
+     },
+     "weight": 504,
+     "expl": 0.24,
+     "iter": 90,
+     "size": 127026
+    },
+    {
+     "flop": "AsKh2s",
+     "texture": {
+      "suit": "twotone",
+      "pair": "unpaired",
+      "high": "A",
+      "connect": "semi"
+     },
+     "weight": 468,
+     "expl": 0.26,
+     "iter": 80,
+     "size": 112519
+    },
+    {
+     "flop": "Qs8h3d",
+     "texture": {
+      "suit": "rainbow",
+      "pair": "unpaired",
+      "high": "Q",
+      "connect": "dry"
+     },
+     "weight": 360,
+     "expl": 0.3,
+     "iter": 100,
+     "size": 128464
+    }
+   ]
+  }
+ ]
+}

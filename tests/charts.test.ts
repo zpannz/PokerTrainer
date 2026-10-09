@@ -42,6 +42,9 @@ describe('翻前范围数据', () => {
     expect(getChart('cash6-100/rfi/CO/').source.kind).toBe('compiled');
     expect(getChart('cash6-100/vsOpen/BB/BTN').source.kind).toBe('approx');
     expect(getChart('mtt9-40/rfi/UTG/').source.kind).toBe('approx');
+    expect(getChart('mtt6-25/vsShove/BB/CO').source.kind).toBe('computed');
+    expect(getChart('mtt6-20/reshove/BB/BTN').source.kind).toBe('computed');
+    expect(getChart('mtt6-30/vsReshove/CO/BTN').source.kind).toBe('computed');
   });
 
   it('开池范围随位置变宽（每种非全下格式）', () => {

@@ -10,6 +10,9 @@ import { DrillsPage } from './pages/DrillsPage.tsx';
 import { LessonsPage } from './pages/LessonsPage.tsx';
 import { StatsPage } from './pages/StatsPage.tsx';
 import { AboutPage } from './pages/AboutPage.tsx';
+import { SolverPage } from './pages/SolverPage.tsx';
+import { PostflopTrainerPage } from './pages/PostflopTrainerPage.tsx';
+import { ReviewPage } from './pages/ReviewPage.tsx';
 
 function useHashRoute(): string {
   const get = () => (window.location.hash.replace(/^#/, '') || '/').split('?')[0];
@@ -28,6 +31,9 @@ function useHashRoute(): string {
 const NAV: { path: string; label: string }[] = [
   { path: '/ranges', label: '范围库' },
   { path: '/train', label: '翻前训练' },
+  { path: '/solver', label: '翻后求解' },
+  { path: '/postflop-train', label: '翻后训练' },
+  { path: '/review', label: '手牌复盘' },
   { path: '/tools/equity', label: '胜率计算' },
   { path: '/tools/icm', label: 'ICM' },
   { path: '/tools/drills', label: '概念练习' },
@@ -50,6 +56,9 @@ export function App() {
   if (!ready) page = <div className="card">{error ? `数据加载失败：${error}` : '正在加载数据…'}</div>;
   else if (route.startsWith('/ranges')) page = <RangesPage />;
   else if (route.startsWith('/train')) page = <TrainerPage />;
+  else if (route.startsWith('/solver')) page = <SolverPage />;
+  else if (route.startsWith('/postflop-train')) page = <PostflopTrainerPage />;
+  else if (route.startsWith('/review')) page = <ReviewPage />;
   else if (route.startsWith('/tools/equity')) page = <EquityPage />;
   else if (route.startsWith('/tools/icm')) page = <IcmPage />;
   else if (route.startsWith('/tools/drills')) page = <DrillsPage />;
@@ -62,7 +71,7 @@ export function App() {
     <FormatProvider>
       <header className="topbar">
         <a className="brand" href="#/">
-          <span className="brand-suit">♠</span> 翻前 GTO 训练
+          <span className="brand-suit">♠</span> 扑克 GTO 训练
         </a>
         <nav className="nav">
           {NAV.map((n) => (
@@ -74,7 +83,14 @@ export function App() {
       </header>
       <main className="main">{page}</main>
       <footer className="footer">
-        学习与复盘工具 · 只支持手动输入局面，不读取牌桌、不做实时辅助 · 学习数据只保存在本机浏览器
+        学习与复盘工具 · 只支持手动输入局面，不读取牌桌、不做实时辅助 · 学习数据只保存在本机浏览器 ·{' '}
+        <a href="https://github.com/zpannz/PokerTrainer" target="_blank" rel="noreferrer">
+          源代码（AGPL-3.0）
+        </a>{' '}
+        · 翻后求解引擎{' '}
+        <a href="https://github.com/b-inary/postflop-solver" target="_blank" rel="noreferrer">
+          postflop-solver
+        </a>
       </footer>
     </FormatProvider>
   );

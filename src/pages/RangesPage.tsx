@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FormatPicker, useFormat } from '../components/FormatContext.tsx';
 import { ActionSummary, HandInfo, RangeGrid, ACTION_COLORS } from '../components/RangeGrid.tsx';
 import { SourceBadge } from '../components/SourceBadge.tsx';
+import { SchemeBar, SchemePanel } from '../components/SchemePanel.tsx';
 import {
   type ActionKey,
   type Spot,
@@ -9,7 +10,7 @@ import {
   CATEGORY_NAMES,
   actionLabel,
   describeSpot,
-  isPushFold,
+  categoriesOf,
   spotCategories,
   spotTitle,
   spotsOf,
@@ -18,10 +19,6 @@ import { NUM_CLASSES } from '../lib/hands.ts';
 import { formatRange, parseRange } from '../lib/rangeText.ts';
 import { clearOverride, effectiveChart, getOverride, setOverride } from '../data/overrides.ts';
 import type { Chart } from '../data/charts.ts';
-
-function categoriesFor(pushfold: boolean): SpotCategory[] {
-  return pushfold ? ['push', 'vsShove', 'bbDefense', 'sbStrategy'] : ['rfi', 'vsOpen', 'bbDefense', 'sbStrategy', 'vs3bet'];
-}
 
 type Draft = Partial<Record<ActionKey, Float64Array>>;
 
@@ -33,8 +30,7 @@ function draftFrom(chart: Chart): Draft {
 
 export function RangesPage() {
   const { format } = useFormat();
-  const pf = isPushFold(format);
-  const cats = categoriesFor(pf);
+  const cats = categoriesOf(format);
   const [cat, setCat] = useState<SpotCategory>(cats[0]);
   const activeCat = cats.includes(cat) ? cat : cats[0];
   const spots = useMemo(() => spotsOf(format).filter((s) => spotCategories(s).includes(activeCat)), [format, activeCat]);
@@ -49,6 +45,7 @@ export function RangesPage() {
   const [brushFreq, setBrushFreq] = useState(100);
   const [importText, setImportText] = useState<Partial<Record<ActionKey, string>>>({});
   const [msg, setMsg] = useState<string>('');
+  const [showSchemes, setShowSchemes] = useState(false);
 
   useEffect(() => {
     setEditing(false);
@@ -162,6 +159,8 @@ export function RangesPage() {
     <div className="page">
       <h1>翻前范围库</h1>
       <FormatPicker />
+      <SchemeBar onManage={() => setShowSchemes(!showSchemes)} />
+      {showSchemes && <SchemePanel format={format} currentSpot={spot.id} onChange={() => setVersion((v) => v + 1)} />}
       <div className="tabs">
         {cats.map((c) => (
           <button key={c} className={c === activeCat ? 'on' : ''} onClick={() => setCat(c)}>
@@ -189,7 +188,7 @@ export function RangesPage() {
           </div>
           <RangeGrid data={shown} labels={labels} editable={editing} onPaint={paint} onSelect={(h) => setSelected(h)} highlight={selected} />
           <ActionSummary data={shown} labels={labels} />
-          {spot.type === 'vs3bet' && <p className="muted small">灰色格子：开池时不会玩的手牌。比例按开池范围计算。</p>}
+          {(spot.type === 'vs3bet' || spot.type === 'vsReshove') && <p className="muted small">灰色格子：开池时不会玩的手牌。比例按开池范围计算。</p>}
         </div>
         <aside className="range-side">
           {selected !== null && (
