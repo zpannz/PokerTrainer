@@ -13,7 +13,7 @@ import { configKey, getSolve, putSolve } from '../postflop/cache.ts';
 import { collectStreet, liveSource } from '../postflop/sources.ts';
 import { historyKey, type SolveConfig, type SolvedSpot } from '../postflop/types.ts';
 import { solverLink } from './SolverPage.tsx';
-import { load, save } from '../lib/storage.ts';
+import { load, remove, save } from '../lib/storage.ts';
 
 const GRADE: Record<string, string> = { best: '✓ 最佳', ok: '≈ 可接受', wrong: '✗ 错误' };
 
@@ -99,10 +99,23 @@ function manualToRecord(m: Manual): HandRecord {
 }
 
 export function ReviewPage() {
-  const [mode, setMode] = useState<'manual' | 'hh'>('manual');
+  // 从模拟对战"送进手牌复盘"的手牌：自动填入并开始复盘
+  const [imported] = useState(() => {
+    const t = load<string | null>('reviewImport', null);
+    if (t) remove('reviewImport');
+    return t;
+  });
+  const [mode, setMode] = useState<'manual' | 'hh'>(imported ? 'hh' : 'manual');
   const [manual, setManual] = useState<Manual>(() => load('reviewManual', DEFAULT_MANUAL));
-  const [hh, setHh] = useState('');
-  const [rec, setRec] = useState<HandRecord | null>(null);
+  const [hh, setHh] = useState(imported ?? '');
+  const [rec, setRec] = useState<HandRecord | null>(() => {
+    if (!imported) return null;
+    try {
+      return parseHandHistory(imported);
+    } catch {
+      return null;
+    }
+  });
   const [err, setErr] = useState('');
   useEffect(() => save('reviewManual', manual), [manual]);
 
@@ -134,7 +147,7 @@ export function ReviewPage() {
           <ManualForm m={manual} set={setManual} />
         ) : (
           <>
-            <p className="muted small">支持 PokerStars 格式，以及结构相同的 GGPoker / Natural8 等（第一行含 "Hand #"）。只读取行动和金额；玩家名称不会保存或上传。</p>
+            <p className="muted small">支持 PokerStars 格式，以及结构相同的 GGPoker / Natural8 等（第一行含 "Hand #"），也包括本工具模拟对战导出的手牌历史。只读取行动和金额；玩家名称不会保存或上传。</p>
             <textarea rows={14} value={hh} onChange={(e) => setHh(e.target.value)} style={{ width: '100%', fontFamily: 'var(--mono)', fontSize: 12 }} placeholder="粘贴一手牌的完整历史文本…" />
             <button className="btn small" onClick={() => setHh(SAMPLE_HH)}>
               填入示例
