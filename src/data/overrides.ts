@@ -183,3 +183,30 @@ export function effectiveChart(id: string): Chart {
   if (!ov || !s) return base;
   return chartFromOverride(base, ov, s);
 }
+
+/** 指定方案的范围表（DEFAULT_SCHEME_ID = 默认数据；方案不存在时也用默认数据） */
+export function chartForScheme(id: string, schemeId: string): Chart {
+  const base = getChart(id);
+  if (schemeId === DEFAULT_SCHEME_ID) return base;
+  const s = schemes()[schemeId];
+  const ov = s?.spots[id];
+  return s && ov ? chartFromOverride(base, ov, s) : base;
+}
+
+/** 方案内容的版本标识（方案被修改后变化，用于缓存） */
+export function schemeVersion(schemeId: string): string {
+  const s = schemeId === DEFAULT_SCHEME_ID ? null : schemes()[schemeId];
+  if (!s) return DEFAULT_SCHEME_ID;
+  let t = 0;
+  let n = 0;
+  for (const ov of Object.values(s.spots)) {
+    t = Math.max(t, ov.updated);
+    n++;
+  }
+  return `${s.id}:${n}:${t}`;
+}
+
+export function schemeName(schemeId: string): string {
+  if (schemeId === DEFAULT_SCHEME_ID) return DEFAULT_SCHEME_NAME;
+  return schemes()[schemeId]?.name ?? `${DEFAULT_SCHEME_NAME}（原方案已删除）`;
+}

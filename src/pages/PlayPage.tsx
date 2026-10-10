@@ -6,6 +6,7 @@ import { STYLES, STYLE_IDS, STYLE_MIXES, type StyleId } from '../sim/styles.ts';
 import { SimTable, type TableSettings } from '../components/sim/SimTable.tsx';
 import { SimResults, sessionTitle } from '../components/sim/SimResults.tsx';
 import { SchemeBar } from '../components/SchemePanel.tsx';
+import { DEFAULT_SCHEME_ID, DEFAULT_SCHEME_NAME, activeSchemeId, activeSchemeName, listSchemes } from '../data/overrides.ts';
 
 const SESSION_KEY = 'sim.session';
 const LAST_KEY = 'sim.last';
@@ -30,6 +31,8 @@ interface LobbySettings {
   ft: { players: number; depth: 'short' | 'medium' | 'deep'; structure: 'fast' | 'standard'; anteMode: AnteMode; payouts: string };
   mix: string;
   custom: StyleId[];
+  /** AI 翻前使用的范围方案：'active' = 跟随当前选中的方案（默认）；或 DEFAULT_SCHEME_ID / 某个方案 id */
+  aiScheme: string;
 }
 
 const DEFAULTS: LobbySettings = {
@@ -39,7 +42,15 @@ const DEFAULTS: LobbySettings = {
   ft: { players: 6, depth: 'medium', structure: 'standard', anteMode: 'bb', payouts: DEFAULT_PAYOUTS.ft.join(', ') },
   mix: 'mixed',
   custom: ['tag', 'station', 'lag', 'nit', 'gto', 'tag', 'station', 'lag'],
+  aiScheme: 'active',
 };
+
+/** 开局时确定 AI 使用的方案 id（之后不随当前方案的切换而变化，保证一局之内一致） */
+function resolveScheme(choice: string): string {
+  if (choice === 'active') return activeSchemeId();
+  if (choice === DEFAULT_SCHEME_ID || listSchemes().some((x) => x.id === choice)) return choice;
+  return activeSchemeId();
+}
 
 const STAKES = [
   { bb: 100, label: '0.5 / 1' },
@@ -61,8 +72,9 @@ function styleList(s: LobbySettings): StyleId[] {
 
 export function makeConfig(s: LobbySettings): SessionConfig {
   const styles = styleList(s);
+  const rangeScheme = resolveScheme(s.aiScheme);
   if (s.mode === 'cash') {
-    const c: CashConfig = { kind: 'cash', tableSize: s.cash.tableSize, sb: s.cash.stakes / 2, bb: s.cash.stakes, buyinBB: s.cash.buyinBB, styles, hands: s.cash.hands, autoTopUp: s.cash.autoTopUp };
+    const c: CashConfig = { kind: 'cash', tableSize: s.cash.tableSize, sb: s.cash.stakes / 2, bb: s.cash.stakes, buyinBB: s.cash.buyinBB, styles, hands: s.cash.hands, autoTopUp: s.cash.autoTopUp, rangeScheme };
     return c;
   }
   if (s.mode === 'sng') {
@@ -70,13 +82,13 @@ export function makeConfig(s: LobbySettings): SessionConfig {
     const pool = s.sng.buyin * s.sng.tableSize;
     const sum = pct.reduce((a, b) => a + b, 0) || 1;
     const payouts = pct.slice(0, s.sng.tableSize).map((p) => Math.round((p / sum) * pool));
-    const c: TourneyConfig = { kind: 'sng', tableSize: s.sng.tableSize, startStack: s.sng.startStack, structure: s.sng.structure, anteMode: s.sng.anteMode, payouts, styles };
+    const c: TourneyConfig = { kind: 'sng', tableSize: s.sng.tableSize, startStack: s.sng.startStack, structure: s.sng.structure, anteMode: s.sng.anteMode, payouts, styles, rangeScheme };
     return c;
   }
   const payouts = parseNums(s.ft.payouts).slice(0, s.ft.players);
   while (payouts.length < s.ft.players) payouts.push(0);
   payouts.sort((a, b) => b - a);
-  const c: TourneyConfig = { kind: 'ft', tableSize: 6, startStack: 1500, structure: s.ft.structure, anteMode: s.ft.anteMode, payouts, styles, ftPlayers: s.ft.players, ftDepth: s.ft.depth };
+  const c: TourneyConfig = { kind: 'ft', tableSize: 6, startStack: 1500, structure: s.ft.structure, anteMode: s.ft.anteMode, payouts, styles, ftPlayers: s.ft.players, ftDepth: s.ft.depth, rangeScheme };
   return c;
 }
 
@@ -222,15 +234,31 @@ export function PlayPage() {
               const st = STYLES[id];
               return (
                 <li key={id}>
-                  <span className={`style-tag st-${id}`}>{st.name}</span> {st.desc}（6 人桌目标 VPIP {st.target[6].vpip.join('~')}%，PFR {st.target[6].pfr.join('~')}%）
+                  <span className={`style-tag st-${id}`}>{st.name}</span> {st.desc}（目标 VPIP / PFR：6 人桌 {st.target[6].vpip.join('~')}% / {st.target[6].pfr.join('~')}%，9 人桌 {st.target[9].vpip.join('~')}% / {st.target[9].pfr.join('~')}%）
                 </li>
               );
             })}
           </ul>
+          <p className="muted">目标区间取自外部常见数据（GTO 型按常见 6 人桌 100bb 求解结果），实际数据会随桌上其他对手的风格有所波动。</p>
           <p className="muted">
-            翻前：能对应到范围库场景（开池、面对加注、面对 3-bet、全下/弃牌、面对全下、再全下）时，按风格调整宽紧后的范围表行动；锦标赛 20bb 以下首先入池只用全下/弃牌表。多人底池、4-bet 以上等没有表的局面按翻前牌力和风格参数决策。翻后：单挑底池且翻牌能匹配预计算牌面库时按求解结果行动（非 GTO 风格有少量偏移），否则按对估计范围的胜率、底池赔率和风格参数决策。AI 使用默认范围数据。
+            翻前：能对应到范围库场景（开池、有人溜入时加注隔离、面对加注、开池后有人跟注时挤压、面对 3-bet、全下/弃牌、面对全下、再全下）时，按风格调整宽紧后的范围表行动；锦标赛 20bb 以下首先入池只用全下/弃牌表。多人底池、4-bet 以上等没有表的局面按翻前牌力和风格参数决策。翻后：单挑底池且翻牌能匹配预计算牌面库时按求解结果行动（非 GTO 风格有少量偏移），否则按对估计范围的胜率、底池赔率和风格参数决策。
           </p>
         </details>
+        <h3>AI 的翻前范围方案</h3>
+        <div className="field">
+          <select value={settings.aiScheme} onChange={(e) => u({ aiScheme: e.target.value })}>
+            <option value="active">跟随当前选中的方案（{activeSchemeName()}）</option>
+            <option value={DEFAULT_SCHEME_ID}>{DEFAULT_SCHEME_NAME}</option>
+            {listSchemes().map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}
+              </option>
+            ))}
+          </select>
+          <p className="muted small">
+            默认跟随当前选中的方案，与打完复盘的对照数据一致（复盘总是对照当前选中的方案）。开局时确定，之后切换方案不影响这一局。方案没有覆盖的局面用默认数据；在此基础上再按风格调整宽紧。
+          </p>
+        </div>
         <div className="btn-row">
           <button className="btn primary big" onClick={start}>
             {session && !session.finished ? '开始新的一局（覆盖未打完的）' : '开始'}

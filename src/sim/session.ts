@@ -17,6 +17,8 @@ export interface CashConfig {
   hands: number;
   /** 每手开始前把自己的筹码补到买入额 */
   autoTopUp: boolean;
+  /** AI 翻前使用的范围方案 id（创建时确定；未设置 = 默认数据） */
+  rangeScheme?: string;
 }
 
 export type Structure = 'fast' | 'standard';
@@ -34,6 +36,8 @@ export interface TourneyConfig {
   /** 决赛桌残局：剩余人数与筹码深度 */
   ftPlayers?: number;
   ftDepth?: 'short' | 'medium' | 'deep';
+  /** AI 翻前使用的范围方案 id（创建时确定；未设置 = 默认数据） */
+  rangeScheme?: string;
 }
 
 export type SessionConfig = CashConfig | TourneyConfig;

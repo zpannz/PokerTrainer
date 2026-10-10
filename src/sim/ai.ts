@@ -3,7 +3,7 @@
 // 翻后：能匹配预计算牌面时按求解结果行动；否则按"对估计范围的胜率"、底池赔率和风格参数决策
 import { type Position, fourBetSize, openSize, parseSpotId, threeBetSize } from '../lib/formats.ts';
 import { comboToClass } from '../lib/hands.ts';
-import { getChart } from '../data/charts.ts';
+import { DEFAULT_SCHEME_ID, chartForScheme, schemeVersion } from '../data/overrides.ts';
 import { cardToString } from '../lib/cards.ts';
 import { type Act, type HandState, currentPlayer, legalActions, potTotal } from './engine.ts';
 import { type GameKind, effectiveBB, preflopSituation, seatPositions, styledChart } from './preflop.ts';
@@ -31,6 +31,8 @@ export interface AiContext {
   solver?: SolverView | null;
   /** 蒙特卡洛样本数 */
   samples?: number;
+  /** 翻前使用的范围方案 id（默认 = 默认数据） */
+  scheme?: string;
 }
 
 export interface AiDecision extends Act {
@@ -71,10 +73,13 @@ function preflop(ctx: AiContext): AiDecision {
   const h = comboToClass(me.hole[0], me.hole[1]);
   const bb = st.bb;
   if (sit.spotId) {
-    const chart = getChart(sit.spotId);
-    const sf = styledChart(chart, style);
-    const r = sf.raise[h];
-    const c = sf.call[h];
+    const scheme = ctx.scheme ?? DEFAULT_SCHEME_ID;
+    const chart = chartForScheme(sit.spotId, scheme);
+    const sf = styledChart(chart, style, schemeVersion(scheme));
+    let r = sf.raise[h];
+    let c = sf.call[h];
+    if (sit.kind === 'iso') r *= style.pre.iso; // 溜入后加注隔离（开池表中的"跟注"部分即为跟着溜入）
+    if (sit.kind === 'squeeze') c *= 0.6; // 前面已有人跟注：少跟注（overcall）
     const x = rand();
     const spot = parseSpotId(sit.spotId);
     const basis = spot.type === 'push' || spot.type === 'vsShove' || spot.type === 'reshove' || spot.type === 'vsReshove' ? 'pushfold' : 'chart';
@@ -82,11 +87,12 @@ function preflop(ctx: AiContext): AiDecision {
       if (sf.aggressive === 'allin') return { ...raiseAct(st, L.maxTo), basis };
       const f = sit.format;
       let to: number;
-      if (spot.type === 'rfi') to = openSize(f, sit.pos) * bb;
+      if (sit.kind === 'iso') to = (openSize(f, sit.pos) + 1 + sit.limpers.length) * bb;
+      else if (spot.type === 'rfi') to = openSize(f, sit.pos) * bb;
       else if (spot.type === 'vsOpen') {
         const o = openSize(f, spot.villain!);
         const t = threeBetSize(f, spot.villain!, sit.pos);
-        to = t === null ? L.maxTo : sit.raises[0].to * (t / o);
+        to = t === null ? L.maxTo : sit.raises[0].to * (t / o + sit.callersAfterRaise.length);
       } else if (spot.type === 'vs3bet') {
         const fb = fourBetSize(f, sit.raises[1].to / bb);
         to = fb === null ? L.maxTo : sit.raises[1].to * 2.25;

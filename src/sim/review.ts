@@ -53,8 +53,7 @@ function preflopContext(s: Session, h: CompactHand, k: number): { pot: number; t
 
 function evLossOf(step: ReviewStep, ctx: { pot: number; toCall: number }): { loss: number; exact: boolean } {
   if (step.evLoss !== undefined) return { loss: step.evLoss, exact: true };
-  const chosen = step.freqs.find((f) => f.chosen);
-  if (!chosen) return { loss: 0, exact: false };
+  const chosen = step.freqs.find((f) => f.chosen) ?? { freq: 0, ev: undefined };
   const hasEv = step.freqs.some((f) => f.ev !== undefined);
   if (hasEv) {
     // 计算得出的表：EV 为相对弃牌的 EV（弃牌 = 0）
@@ -87,7 +86,10 @@ export async function reviewSession(s: Session, opts: { provider?: SpotProvider 
     }
     const steps: ReviewStep[] = [];
     const pre = reviewPreflop(rec);
-    pre.steps.forEach((st, k) => {
+    pre.steps.forEach((st0, k) => {
+      let st = st0;
+      // 范围表中没有你的选项（例如首先入池时溜入）：按错误计，EV 损失按"表中最高频率 × 底池"估算
+      if (!st.grade && st.freqs.length > 0 && !st.freqs.some((f) => f.chosen)) st = { ...st, grade: 'wrong', note: `${st.note ?? ''}（范围表中没有这个选项，按错误计）` };
       steps.push(st);
       if (!st.grade) return;
       const { loss, exact } = evLossOf(st, preflopContext(s, h, k));

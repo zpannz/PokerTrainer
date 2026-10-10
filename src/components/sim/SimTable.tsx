@@ -10,6 +10,7 @@ import { aiAct, prepareStreet } from '../../sim/driver.ts';
 import { seatPositions } from '../../sim/preflop.ts';
 import { STYLES } from '../../sim/styles.ts';
 import { solverStatus } from '../../sim/solver.ts';
+import { DEFAULT_SCHEME_ID, schemeName } from '../../data/overrides.ts';
 
 export interface TableSettings {
   fast: boolean;
@@ -357,6 +358,7 @@ function SessionInfo({ session }: { session: Session }) {
           </span>
           <span>{bbPer100(session).toFixed(1)} bb/100</span>
         </div>
+        <div className="small muted">AI 范围方案：{schemeName(c.rangeScheme ?? DEFAULT_SCHEME_ID)}</div>
       </div>
     );
   }
@@ -372,6 +374,7 @@ function SessionInfo({ session }: { session: Session }) {
       <div className="small muted">
         奖金：{c.payouts.map((p, i) => `第 ${i + 1} 名 ${p}`).join(' · ')}
       </div>
+      <div className="small muted">AI 范围方案：{schemeName(c.rangeScheme ?? DEFAULT_SCHEME_ID)}</div>
     </div>
   );
 }

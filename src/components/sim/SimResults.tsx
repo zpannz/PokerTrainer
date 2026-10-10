@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CardRow } from '../Cards.tsx';
 import { save } from '../../lib/storage.ts';
+import { DEFAULT_SCHEME_ID, activeSchemeId, activeSchemeName, schemeName } from '../../data/overrides.ts';
 import { type Session, bbPer100, cashProfit, heroInfo, type TourneyConfig } from '../../sim/session.ts';
 import { type PlayerStats, emptyStats, statLine } from '../../sim/stats.ts';
 import { STYLES } from '../../sim/styles.ts';
@@ -77,6 +78,10 @@ export function SimResults({ session, onBack }: { session: Session; onBack: () =
       </div>
       <h1>结算 · {sessionTitle(s)}</h1>
       {s.endNote && <p>{s.endNote}</p>}
+      <p className="muted small">
+        AI 翻前范围方案：{schemeName(c.rangeScheme ?? DEFAULT_SCHEME_ID)} · 复盘对照的方案：{activeSchemeName()}
+        {(c.rangeScheme ?? DEFAULT_SCHEME_ID) !== activeSchemeId() && '（两者不同）'}
+      </p>
       <div className="stat-tiles">
         <Tile label="手数" value={String(s.history.length)} />
         {cash ? (

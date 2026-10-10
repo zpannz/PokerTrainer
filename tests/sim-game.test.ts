@@ -6,7 +6,7 @@ import { icm } from '../src/lib/icm.ts';
 import { parseHandHistory } from '../src/lib/handHistory.ts';
 import { applyAction, startHand } from '../src/sim/engine.ts';
 import { allinEvNet } from '../src/sim/allinEv.ts';
-import { blindLevels, newSession, beginHand, finishHand, type TourneyConfig, type CashConfig, bbPer100, cashProfit } from '../src/sim/session.ts';
+import { LOG_KINDS, blindLevels, newSession, beginHand, finishHand, type TourneyConfig, type CashConfig, bbPer100, cashProfit } from '../src/sim/session.ts';
 import { playHandSync, playHandAsync, aiAct } from '../src/sim/driver.ts';
 import { STYLES, STYLE_IDS, type StyleId } from '../src/sim/styles.ts';
 import { seededU32 } from '../src/sim/rng.ts';
@@ -189,22 +189,43 @@ describe('锦标赛', () => {
   });
 });
 
-describe('AI 风格数据', () => {
+/** 打 2500 手现金桌，按风格汇总统计；同时统计每种风格"非大盲位平跟"（溜入或跟注开池，且这手牌之前没有加注过）的手数 */
+function runStyles(size: 6 | 9, styles: StyleId[], seed: number) {
+  const u = seededU32(seed);
+  const s = newSession({ kind: 'cash', tableSize: size, sb: 50, bb: 100, buyinBB: 100, styles, hands: 100000, autoTopUp: true }, u);
+  for (let i = 0; i < 2500; i++) playHandSync(s, { u, heroAuto: STYLES.gto, samples: 150 });
+  const styleOfSeat = (seat: number) => s.seats[seat].style ?? 'gto';
+  const agg = new Map<StyleId, ReturnType<typeof emptyStats>>();
+  for (const seat of s.seats) agg.set(styleOfSeat(seat.seat), addStats(agg.get(styleOfSeat(seat.seat)) ?? emptyStats(), s.stats[seat.seat]));
+  const flats = new Map<StyleId, number>();
+  for (const h of s.history) {
+    const bbSeat = h.l.find((e) => LOG_KINDS[e[2]] === 'bb')?.[1];
+    const raised = new Set<number>();
+    const flatted = new Set<number>();
+    for (const [street, seat, k] of h.l) {
+      if (street !== 0) break;
+      const kind = LOG_KINDS[k];
+      if (kind === 'raise' || kind === 'bet') raised.add(seat);
+      if (kind === 'call' && seat !== bbSeat && !raised.has(seat)) flatted.add(seat);
+    }
+    for (const seat of flatted) flats.set(styleOfSeat(seat), (flats.get(styleOfSeat(seat)) ?? 0) + 1);
+  }
+  return { agg, flats };
+}
+
+describe('AI 风格数据（目标区间取自外部常见数据，见 src/sim/styles.ts）', () => {
   for (const size of [6, 9] as const)
-    it(`${size} 人桌：各风格的 VPIP / PFR 在设定范围内`, () => {
-      const u = seededU32(size * 13);
-      const styles: StyleId[] = ['nit', 'tag', 'lag', 'station', 'gto', 'tag', 'lag', 'station'];
-      const s = newSession({ kind: 'cash', tableSize: size, sb: 50, bb: 100, buyinBB: 100, styles, hands: 100000, autoTopUp: true }, u);
-      for (let i = 0; i < 2500; i++) playHandSync(s, { u, heroAuto: STYLES.gto, samples: 150 });
-      const agg = new Map<StyleId, ReturnType<typeof emptyStats>>();
-      for (const seat of s.seats) {
-        const k = seat.style ?? 'gto';
-        agg.set(k, addStats(agg.get(k) ?? emptyStats(), s.stats[seat.seat]));
-      }
+    it(`${size} 人桌混合风格 2500 手：各风格的 VPIP / PFR 在设定范围内`, () => {
+      const { agg, flats } = runStyles(size, ['nit', 'tag', 'lag', 'station', 'gto', 'tag', 'lag', 'station'], size * 13);
       for (const id of STYLE_IDS) {
         const st = agg.get(id)!;
         const l = statLine(st);
-        const t = STYLES[id].target[size];
+        // GTO 型的目标是求解器数据（GTO 对 GTO 的环境），严格检查放在下面"全部 GTO 型"的测试里；
+        // 在有跟注站溜入的混合桌上，它的数据随座位关系有 ±1.5 个百分点左右的波动，这里放宽 1.5
+        const tol = id === 'gto' ? 1.5 : 0;
+        const t0 = STYLES[id].target[size];
+        const t = { vpip: [t0.vpip[0] - tol, t0.vpip[1] + tol], pfr: [t0.pfr[0] - tol, t0.pfr[1] + tol] };
+        console.log(`${size} 人桌 ${STYLES[id].name}：${st.hands} 手 VPIP ${l.vpip.toFixed(1)}%（目标 ${t.vpip.join('~')}） PFR ${l.pfr.toFixed(1)}%（目标 ${t.pfr.join('~')}） 3-bet ${l.threeBet.toFixed(1)}% 非大盲平跟 ${((100 * (flats.get(id) ?? 0)) / st.hands).toFixed(1)}%`);
         expect(l.vpip, `${id} VPIP`).toBeGreaterThanOrEqual(t.vpip[0]);
         expect(l.vpip, `${id} VPIP`).toBeLessThanOrEqual(t.vpip[1]);
         expect(l.pfr, `${id} PFR`).toBeGreaterThanOrEqual(t.pfr[0]);
@@ -217,6 +238,23 @@ describe('AI 风格数据', () => {
       expect(v('lag').vpip).toBeLessThan(v('station').vpip);
       expect(v('station').pfr).toBeLessThan(v('nit').pfr);
       expect(v('station').af).toBeLessThan(v('lag').af);
+      // GTO 型翻前以加注为主：除大盲外很少平跟
+      const g = agg.get('gto')!;
+      expect((flats.get('gto') ?? 0) / g.hands).toBeLessThan(0.02);
+      expect(v('gto').pfr / v('gto').vpip).toBeGreaterThan(0.75);
+    });
+  for (const size of [6, 9] as const)
+    it(`${size} 人桌全部 GTO 型 2500 手：VPIP / PFR 在设定范围内，除大盲外很少平跟`, () => {
+      const { agg, flats } = runStyles(size, ['gto', 'gto', 'gto', 'gto', 'gto', 'gto', 'gto', 'gto'], size * 31);
+      const g = agg.get('gto')!;
+      const l = statLine(g);
+      const t = STYLES.gto.target[size];
+      console.log(`${size} 人桌全部 GTO 型：${g.hands} 手 VPIP ${l.vpip.toFixed(1)}% PFR ${l.pfr.toFixed(1)}% 3-bet ${l.threeBet.toFixed(1)}% 非大盲平跟 ${((100 * (flats.get('gto') ?? 0)) / g.hands).toFixed(1)}%`);
+      expect(l.vpip).toBeGreaterThanOrEqual(t.vpip[0]);
+      expect(l.vpip).toBeLessThanOrEqual(t.vpip[1]);
+      expect(l.pfr).toBeGreaterThanOrEqual(t.pfr[0]);
+      expect(l.pfr).toBeLessThanOrEqual(t.pfr[1]);
+      expect((flats.get('gto') ?? 0) / g.hands).toBeLessThan(0.02);
     });
   it('锦标赛短筹码按全下/弃牌表：首先入池时只有全下或弃牌', () => {
     let unopened = 0;
@@ -322,5 +360,56 @@ describe('打完复盘', () => {
     const rec = parseHandHistory(exportHand(s, s.history[0]));
     expect(rec.game).toBe('mtt');
     expect(rec.antePerPlayer).toBeCloseTo(1 / s.history[0].p.length, 6);
+  });
+});
+
+describe('AI 使用的范围方案', () => {
+  it('默认跟随当前选中的方案；也可以另外指定（开局时确定）', async () => {
+    const { createScheme, setActiveScheme, toOverride, DEFAULT_SCHEME_ID } = await import('../src/data/overrides.ts');
+    const { makeConfig } = await import('../src/pages/PlayPage.tsx');
+    const { spotId } = await import('../src/lib/formats.ts');
+    // 方案：6 人桌 100bb UTG 开池范围改为"全部手牌都加注"
+    const all = new Float64Array(169).fill(1);
+    const sch = createScheme('测试：UTG 全开', '测试用', { [spotId('cash6-100', 'rfi', 'UTG')]: toOverride({ raise: all }) });
+    setActiveScheme(sch.id);
+    const base = {
+      mode: 'cash' as const,
+      cash: { tableSize: 6 as const, stakes: 100, buyinBB: 100, hands: 200, autoTopUp: true },
+      sng: { tableSize: 6 as const, startStack: 1500, structure: 'standard' as const, anteMode: 'bb' as const, buyin: 100, payouts6: '65,35', payouts9: '50,30,20' },
+      ft: { players: 6, depth: 'medium' as const, structure: 'standard' as const, anteMode: 'bb' as const, payouts: '3000,2000' },
+      mix: 'gto',
+      custom: [],
+    };
+    expect(makeConfig({ ...base, aiScheme: 'active' }).rangeScheme).toBe(sch.id);
+    expect(makeConfig({ ...base, aiScheme: DEFAULT_SCHEME_ID }).rangeScheme).toBe(DEFAULT_SCHEME_ID);
+    // 统计 UTG 首先入池时的加注比例
+    const utgOpenRate = (scheme: string) => {
+      const u = seededU32(42);
+      const cfg = { ...(makeConfig({ ...base, aiScheme: scheme }) as CashConfig), hands: 400 };
+      const s = newSession(cfg, u);
+      let opp = 0;
+      let raised = 0;
+      while (!s.finished) {
+        const st = beginHand(s, u);
+        while (!st.done) {
+          const me = st.players[st.toAct];
+          const first = st.street === 0 && st.log.filter((e) => e.street === 0 && e.kind !== 'sb' && e.kind !== 'bb').length === 0;
+          const n0 = st.log.length;
+          aiAct(s, { u, heroAuto: STYLES.gto, provider: null, samples: 60 });
+          if (first && st.players.length === 6 && me.seat !== s.heroSeat) {
+            opp++;
+            if (st.log[n0].kind === 'raise') raised++;
+          }
+        }
+        finishHand(s, u);
+      }
+      return raised / opp;
+    };
+    // 方案里全部加注（风格调整最多保留 97% 的组合，所以接近而不是等于 100%）；默认数据约 15~20%
+    expect(utgOpenRate(sch.id)).toBeGreaterThan(0.95);
+    const def = utgOpenRate(DEFAULT_SCHEME_ID);
+    expect(def).toBeGreaterThan(0.1);
+    expect(def).toBeLessThan(0.3);
+    setActiveScheme(DEFAULT_SCHEME_ID);
   });
 });

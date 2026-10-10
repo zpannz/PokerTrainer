@@ -36,6 +36,7 @@ export function aiAct(s: Session, opts: DriverOptions = {}): (Act & { seat: numb
     seat: p.seat,
     style: styleOf(s, p.seat, opts),
     game: gameKind(s),
+    scheme: s.config.rangeScheme,
     rand: toUnit(u),
     solver: opts.provider === null ? null : solverView(st, p.seat),
     samples: opts.samples,

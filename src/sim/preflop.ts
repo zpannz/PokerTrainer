@@ -63,7 +63,7 @@ export interface PreflopSituation {
   /** 对应的范围库场景（没有对应时为 null） */
   spotId: string | null;
   /** 场景说明（没有对应时的原因） */
-  kind: 'rfi' | 'push' | 'vsOpen' | 'vsShove' | 'reshove' | 'vs3bet' | 'vsReshove' | 'limped' | 'multi' | 'deep';
+  kind: 'rfi' | 'push' | 'vsOpen' | 'vsShove' | 'reshove' | 'vs3bet' | 'vsReshove' | 'iso' | 'squeeze' | 'limped' | 'multi' | 'deep';
 }
 
 export function chartExists(id: string): boolean {
@@ -103,7 +103,17 @@ export function preflopSituation(st: HandState, seat: number, game: GameKind): P
     const id = spotId(f.id, isPushFold(f) ? 'push' : 'rfi', pos);
     if (pos !== 'BB' && chartExists(id)) return { ...base, spotId: id, kind: isPushFold(f) ? 'push' : 'rfi' };
   }
-  if (R === 0) return { ...base, spotId: null, kind: 'limped' };
+  if (R === 0) {
+    // 前面有人溜入：没溜入过的玩家按自己位置的开池表决定是否加注隔离（ISO）
+    const id = spotId(f.id, 'rfi', pos);
+    if (!actedBefore && pos !== 'BB' && !isPushFold(f) && chartExists(id)) return { ...base, spotId: id, kind: 'iso' };
+    return { ...base, spotId: null, kind: 'limped' };
+  }
+  if (R === 1 && limpers.length === 0 && callersAfterRaise.length > 0 && !actedBefore && !raises[0].allin && !isPushFold(f)) {
+    // 开池后已有人跟注：按面对开池的表（挤压 squeeze / 跟注）
+    const id = spotId(f.id, 'vsOpen', pos, P(raises[0].seat));
+    if (chartExists(id)) return { ...base, spotId: id, kind: 'squeeze' };
+  }
   if (R === 1 && limpers.length === 0 && callersAfterRaise.length === 0 && !actedBefore) {
     const r = raises[0];
     const opener = P(r.seat);
@@ -156,8 +166,8 @@ export function clearStyledCache(): void {
  * 1. 继续（加注 + 跟注）的组合数 = 范围库 × widen；按"范围库继续频率 + 翻前牌力"的顺序重新分配（收紧时去掉最弱/混合的手牌，放宽时加入次强的手牌）
  * 2. 继续部分中加注的比例 × raiseMult（最强的 4% 手牌保持范围库的加注比例）；首先入池时按 limp 比例改为溜入
  */
-export function styledChart(chart: Chart, style: Style): StyledFreq {
-  const key = `${style.id}|${chart.spot.id}`;
+export function styledChart(chart: Chart, style: Style, schemeKey = ''): StyledFreq {
+  const key = `${style.id}|${schemeKey}|${chart.spot.id}`;
   const hit = styledCache.get(key);
   if (hit) return hit;
   const actions = chart.actions;
@@ -167,7 +177,17 @@ export function styledChart(chart: Chart, style: Style): StyledFreq {
   const isRfi = chart.spot.type === 'rfi';
   const isPush = chart.spot.type === 'push' || chart.spot.type === 'reshove';
   const isCallOnly = !aggressive;
-  const widen = isPush ? style.pre.push : isCallOnly || chart.spot.type === 'vsReshove' ? style.pre.callShove : style.pre.widen;
+  const coldSpot = chart.spot.type === 'vsOpen' && chart.spot.hero !== 'BB';
+  const widen = isPush
+    ? style.pre.push
+    : isCallOnly || chart.spot.type === 'vsReshove'
+      ? style.pre.callShove
+      : isRfi
+        ? style.pre.widen * style.pre.rfi
+        : chart.spot.type === 'vsOpen' && chart.spot.hero === 'BB'
+          ? style.pre.widen * style.pre.bbDefend
+          : style.pre.widen;
+  const widen9 = chart.spot.format.players === 9 && !isPush && !isCallOnly ? style.pre.wide9 : 1;
   const cont = new Float64Array(H);
   let baseMass = 0;
   let maxMass = 0;
@@ -177,7 +197,7 @@ export function styledChart(chart: Chart, style: Style): StyledFreq {
     baseMass += w * cont[h];
     maxMass += w;
   }
-  const target = Math.min(maxMass * 0.97, baseMass * widen);
+  const target = Math.min(maxMass * 0.97, baseMass * widen * widen9);
   const score = Float64Array.from(cont, (c, h) => c + 0.6 * str[h]);
   const order = Array.from({ length: H }, (_, i) => i).sort((a, b) => score[b] - score[a]);
   const newCont = new Float64Array(H);
@@ -208,8 +228,16 @@ export function styledChart(chart: Chart, style: Style): StyledFreq {
       const s2 = Math.min(1, share * style.pre.raiseMult);
       share = premium ? Math.max(share, s2) : s2;
     }
-    raise[h] = c * share;
-    call[h] = c * (1 - share);
+    let r = c * share;
+    let k = c * (1 - share);
+    if (coldSpot && style.pre.coldCall < 1) {
+      // 非大盲面对开池：减少平跟，其中一部分改为 3-bet，其余弃牌
+      const moved = k * (1 - style.pre.coldCall);
+      k -= moved;
+      r += moved * style.pre.coldToRaise;
+    }
+    raise[h] = r;
+    call[h] = k;
   }
   const out = { aggressive: aggressive as StyledFreq['aggressive'], raise, call };
   styledCache.set(key, out);
