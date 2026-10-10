@@ -13,6 +13,7 @@ import { AboutPage } from './pages/AboutPage.tsx';
 import { SolverPage } from './pages/SolverPage.tsx';
 import { PostflopTrainerPage } from './pages/PostflopTrainerPage.tsx';
 import { ReviewPage } from './pages/ReviewPage.tsx';
+import { PlayPage } from './pages/PlayPage.tsx';
 
 function useHashRoute(): string {
   const get = () => (window.location.hash.replace(/^#/, '') || '/').split('?')[0];
@@ -33,6 +34,7 @@ const NAV: { path: string; label: string }[] = [
   { path: '/train', label: '翻前训练' },
   { path: '/solver', label: '翻后求解' },
   { path: '/postflop-train', label: '翻后训练' },
+  { path: '/play', label: '模拟对战' },
   { path: '/review', label: '手牌复盘' },
   { path: '/tools/equity', label: '胜率计算' },
   { path: '/tools/icm', label: 'ICM' },
@@ -59,6 +61,7 @@ export function App() {
   else if (route.startsWith('/solver')) page = <SolverPage />;
   else if (route.startsWith('/postflop-train')) page = <PostflopTrainerPage />;
   else if (route.startsWith('/review')) page = <ReviewPage />;
+  else if (route.startsWith('/play')) page = <PlayPage />;
   else if (route.startsWith('/tools/equity')) page = <EquityPage />;
   else if (route.startsWith('/tools/icm')) page = <IcmPage />;
   else if (route.startsWith('/tools/drills')) page = <DrillsPage />;
@@ -83,7 +86,7 @@ export function App() {
       </header>
       <main className="main">{page}</main>
       <footer className="footer">
-        学习与复盘工具 · 只支持手动输入局面，不读取牌桌、不做实时辅助 · 学习数据只保存在本机浏览器 ·{' '}
+        学习与复盘工具 · 不读取真实牌桌、不做实时辅助 · 模拟对战只用虚拟筹码 · 学习数据只保存在本机浏览器 ·{' '}
         <a href="https://github.com/zpannz/PokerTrainer" target="_blank" rel="noreferrer">
           源代码（AGPL-3.0）
         </a>{' '}

@@ -115,14 +115,14 @@ export function parseHandHistory(text: string): HandRecord {
     }
   }
   if (!heroCards) throw new Error('找不到你的手牌（"Dealt to 名字 [Ah Kd]"）');
-  let ante = 0;
+  // 每人前注：只有一条前注记录时视为大盲前注（= 前注 / 人数），否则为每人前注
+  const antes: number[] = [];
   for (const l of lines) {
+    if (/^\*\*\* HOLE CARDS/i.test(l)) break;
     const m = /posts (?:the )?ante ([$€£¥]?[\d,.]+)/i.exec(l);
-    if (m) {
-      ante = money(m[1]) / bbAmt;
-      break;
-    }
+    if (m) antes.push(money(m[1]) / bbAmt);
   }
+  const ante = antes.length === 0 ? 0 : antes.length === 1 ? antes[0] / n : Math.max(...antes);
   // 行动
   const actions: HAction[] = [];
   let street: Street = 0;

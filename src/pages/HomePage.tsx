@@ -5,6 +5,7 @@ const CARDS = [
   { href: '#/train', title: '翻前训练', desc: '随机出题，立即判分（最佳 / 可接受 / 错误），统计各位置正确率，自动多出你常错的题。' },
   { href: '#/solver', title: '翻后求解器', desc: '在浏览器里求解翻牌/转牌/河牌局面（Discounted CFR），双方范围可从范围库直接选；13×13 格子、EV、胜率，沿博弈树逐步查看。' },
   { href: '#/postflop-train', title: '翻后训练', desc: '在预计算的代表性翻牌或你自己求解的局面里出题，按求解结果判分并显示 EV 损失。' },
+  { href: '#/play', title: '模拟对战', desc: '和 5 种风格的 AI 打现金桌、单桌 SNG 或决赛桌残局（虚拟筹码）。结算盈亏、bb/100、全下 EV 曲线和 VPIP/PFR；打完列出偏离范围的决策并按 EV 损失排序。' },
   { href: '#/review', title: '手牌复盘', desc: '手动输入或粘贴手牌历史，逐个决策点对照翻前范围和翻后求解结果。' },
   { href: '#/tools/equity', title: '胜率计算器', desc: '手牌对手牌、手牌对范围，最多 3 人，可设公共牌。小计算量精确枚举。' },
   { href: '#/tools/icm', title: 'ICM 计算器', desc: '输入奖金分配和各家筹码，计算每个人的 ICM 价值。' },
